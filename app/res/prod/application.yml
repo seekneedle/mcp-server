@@ -1,0 +1,11 @@
+log_level: debug
+
+ip: 0.0.0.0
+port: 8701
+
+data_dir: data
+db_url: sqlite:///../sqlite/prod.db
+
+api_base_url: http://172.21.44.34:3000/v1
+api_key: sk-uPy1382yh72UnCIm6fF2Ce7b0f094dA5Af320aF29c223e57
+

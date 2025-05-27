@@ -1,5 +1,5 @@
 # 使用官方的Python基础镜像
-FROM python:3.11-slim as builder
+FROM python:3.10-slim as builder
 
 # 设置工作目录
 WORKDIR /app

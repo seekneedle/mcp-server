@@ -2,7 +2,7 @@ import uvicorn
 from mcp.server.fastmcp import FastMCP
 from utils.config import config
 
-mcp = FastMCP("Math")
+mcp = FastMCP("Math", host=config["ip"], port=config["port"])
 
 @mcp.tool()
 def add(a: int, b: int) -> int:
@@ -15,4 +15,4 @@ def multiply(a: int, b: int) -> int:
     return a * b
 
 def start_server():
-    mcp.run(transport="stdio")
+    mcp.run(transport="sse")

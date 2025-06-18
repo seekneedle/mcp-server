@@ -1,11 +1,25 @@
 log_level: debug
+project_name: mcp-server
 
 ip: 0.0.0.0
 port: 8701
 
 data_dir: data
-db_url: sqlite:///../sqlite/prod.db
 
 api_base_url: http://172.21.44.34:3000/v1
 api_key: sk-uPy1382yh72UnCIm6fF2Ce7b0f094dA5Af320aF29c223e57
 
+database:
+  host: "rm-2zew428r99pp4a0b4.mysql.rds.aliyuncs.com"
+  port: 3306
+  name: "travel_guide_test"
+  username: "travel_guide_test"
+  password: "fe6fe69b42f2c128f2791f138ed14b07c21702f1eef5111d9e82adae4d8e68426ed54eabdef0cf32289ee70f74b3360e"
+  driver: "pymysql"
+  encoding: "utf8mb4"  # 指定编码
+  pool_options:
+    pool_pre_ping: true
+    pool_recycle: 3600
+    connect_args:
+      charset: "utf8mb4"  # 确保连接使用UTF-8
+      

@@ -4,12 +4,20 @@ from sqlalchemy.ext.declarative import declared_attr
 from contextlib import contextmanager
 import traceback
 from utils.config import config
+from utils.security import decrypt
 
 # 创建一个基类，用于定义表结构
 Base = declarative_base()
 
 # 创建数据库引擎和Session
-engine = create_engine(config['db_url'], echo=False)
+db_url = (
+        f"mysql+{config['database']['driver']}://"
+        f"{config['database']['username']}:{decrypt(config['database']['password'])}@"
+        f"{config['database']['host']}:{config['database']['port']}/"
+        f"{config['database']['name']}?charset={config['database']['encoding']}"
+    )
+
+engine = create_engine(db_url, echo=False, **config['database']['pool_options'])
 Session = sessionmaker(bind=engine)
 
 

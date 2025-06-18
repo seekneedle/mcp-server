@@ -6,11 +6,13 @@ from datetime import datetime
 from utils.config import config
 from logging.handlers import TimedRotatingFileHandler
 
+PROJECT_NAME = config["project_name"]
+
 # 定义日志模型
 class LogEntry(TableModel):
-    level = Column(String)
-    message = Column(String)
-    create_time = Column(String)  # 假设create_time是字符串类型，实际应用中可能需要调整
+    level = Column(String(10))
+    message = Column(String(1000))
+    project_name = Column(String(30))
 
 # 自定义日志处理器
 class DatabaseLogHandler(logging.Handler):
@@ -18,7 +20,7 @@ class DatabaseLogHandler(logging.Handler):
         LogEntry.create(
             level=record.levelname,
             message=self.format(record),
-            create_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            project_name=PROJECT_NAME
         )
 
 # 配置日志记录

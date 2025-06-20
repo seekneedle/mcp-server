@@ -3,11 +3,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 import os
-from utils.config import config
 
-env = os.getenv('ENV')
-if env is None or env != 'uat':
-    env = 'prod'
+env = os.getenv('ENV', 'prod')
 passwd_key = f'needle_assistant_{env}'
 # Set environment with your own password
 needle_passwd = os.getenv(passwd_key)
@@ -67,7 +64,7 @@ if __name__ == '__main__':
     random_password = generate_password()
     print("Generated password:", random_password)
     #
-    cipher_text = encrypt('2Zew428r99pp4a0b4')  # Replace it with the text you need to encrypt
+    cipher_text = encrypt(random_password)  # Replace it with the text you need to encrypt
     print(cipher_text)
 
     plain_text = decrypt(cipher_text)

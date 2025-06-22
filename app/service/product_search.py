@@ -1,7 +1,9 @@
 from typing import List
 from urllib.parse import urlencode
 from utils.config import config
+from utils.log import log
 import aiohttp
+import traceback
 
 
 def get_feature_desc(product_detail, intro, parent_key, keys=None):
@@ -187,8 +189,12 @@ async def search_one(arg):
                                 product_features.append(get_feature_desc(trip, "行程主题", 'title'))
 
                         except Exception as e:
+                            trace_info = traceback.format_exc()
+                            log.error(f'Exception for search one {arg}, line: {line}, e: {e}, trace: {trace_info}')
                             product_features.append("未找到行程信息")
                 except Exception as e:
+                    trace_info = traceback.format_exc()
+                    log.error(f'Exception for search one {arg}, e: {e}, trace: {trace_info}')
                     product_features.append("未找到线路信息")
 
                 product_feature = '\n'.join(product_features)

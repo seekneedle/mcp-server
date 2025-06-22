@@ -17,9 +17,26 @@ class LogEntry(TableModel):
 # 自定义日志处理器
 class DatabaseLogHandler(logging.Handler):
     def emit(self, record):
+        message = self.format(record)
+        
+        if len(message) > 1000:
+            ellipsis = " [...] "
+            max_content_len = 1000 - len(ellipsis)
+            
+            head_len = int(max_content_len * 0.6)
+            tail_len = max_content_len - head_len
+            
+            head_part = message[:head_len]
+            tail_part = message[-tail_len:] if tail_len > 0 else ""
+            
+            message = head_part + ellipsis + tail_part
+        
+        message = message[:1000]
+        
+        # 创建日志条目
         LogEntry.create(
             level=record.levelname,
-            message=self.format(record),
+            message=message,
             project_name=PROJECT_NAME
         )
 

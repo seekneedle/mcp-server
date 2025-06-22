@@ -12,14 +12,14 @@ api_key: "0ab101f0a452a8bd108794f8c401b3e1238e99a91d01ccb117ef9b9f6f3fbec3541c00
 uux_base_url: "https://mapi.uuxlink.com/mcsp/productAi/productInfo"
 needle_base_url: "http://8.152.213.191:8475/vector_store/retrieve"
 needle_id: "icmp3tfyk6"
-needle_password: "447a8130776b19f389e55486abb025e7b7288b83bca577d48d746f5368141f5b"
+needle_auth: "77a83b2f36412966b18adf84d10504819685974757864ceaa8b23c6909c33c07d02563c251c75d780c0e2bd8e875e5bf"
 
 database:
   host: "rm-2zew428r99pp4a0b4.mysql.rds.aliyuncs.com"
   port: 3306
   name: "travel_guide_test"
   username: "travel_guide_test"
-  password: "fe6fe69b42f2c128f2791f138ed14b07c21702f1eef5111d9e82adae4d8e68426ed54eabdef0cf32289ee70f74b3360e"
+  password: "0a1305b80c6a57fe4c5d8f2b93c14315777583ba94315f1d6d4836739352be119fb70b4dddb0358c8c8e028ac0a25dc1"
   driver: "pymysql"
   encoding: "utf8mb4"  # 指定编码
   pool_options:

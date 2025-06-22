@@ -5,7 +5,7 @@ from utils.log import log
 
 URL = config["needle_base_url"]
 ID = config["needle_id"]
-AUTH = decrypt(config["needle_password"])
+AUTH = decrypt(config["needle_auth"])
 
 HEADERS = {
     'Content-Type': 'application/json',

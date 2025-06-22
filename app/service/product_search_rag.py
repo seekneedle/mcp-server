@@ -1,5 +1,5 @@
-from retrieve_needle import retrieve_needle
-from product_search import product_search
+from service.retrieve_needle import retrieve_needle
+from service.product_search import product_search
 
 
 async def search_rag(query: str, top_k: int):

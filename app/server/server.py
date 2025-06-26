@@ -1,11 +1,8 @@
-from fastmcp import FastMCP
 from utils.config import config
-from typing import List
-from service.product_search_rag import search_rag
-from service.product_search_product_num import search_product_nums
 import contextlib
 from starlette.applications import Starlette
 from starlette.routing import Mount
+from server.product_router import product_mcp
 import uvicorn
 
 def combine_lifespans(*lifespans):
@@ -26,47 +23,43 @@ def combine_lifespans(*lifespans):
 
     return combined_lifespan
 
-rag_mcp = FastMCP(
-    name='rag-mcp-server',
-    instructions="""
-        This server provides travel products using rag search information.
-    """,
-    on_duplicate_tools='ignore'
-)
-
-product_num_mcp = FastMCP(
-    name='product-num-mcp-server',
-    instructions="""
-        This server provides travel products using product num search information.
-    """,
-    on_duplicate_tools='ignore'
-)
-
-@rag_mcp.tool()
-async def rag_search(query: str, top_k: int=3) -> str:
-    """Search travel products use RAG"""
-    return await search_rag(query, top_k)
-
-@product_num_mcp.tool()
-async def product_nums_search(product_num: List[str]) -> str:
-    """Search travel products use product nums"""
-    return await search_product_nums(product_num)
+# 手动维护的MCP列表（显式导入后添加）
+ALL_MCPS = [
+    {
+        'path': '/v1/product',
+        'mcp': product_mcp,
+        'middlewares': []
+    }
+]
 
 def start_server():
-    rag_app = rag_mcp.sse_app()
-    product_num_app = product_num_mcp.sse_app()
+    """
+        自动挂载ALL_MCPS中所有MCP服务
+        """
+    # 自动生成路由
+    routes = [
+        Mount(
+            item['path'],
+            app=item['mcp'].sse_app(),
+            middleware=item.get('middlewares', [])
+        )
+        for item in ALL_MCPS
+    ]
 
-    starlettle_app = Starlette(
-        routes=[
-            Mount('/v1/rag', app=rag_app),
-            Mount('/v1/product-num', app=product_num_app),
-        ],
-        debug=True,
-        lifespan=combine_lifespans(rag_app.lifespan, product_num_app.lifespan)
+    # 合并生命周期（假设至少有一个MCP）
+    lifespans = [m['mcp'].lifespan for m in ALL_MCPS]
+    combined_lifespan = lifespans[0] if len(lifespans) == 1 else combine_lifespans(*lifespans)
+
+    # 创建应用
+    app = Starlette(
+        routes=routes,
+        debug=config.get('debug', False),
+        lifespan=combined_lifespan
     )
-    
+
+    # 启动服务
     uvicorn.run(
-        starlettle_app,
-        host=config["ip"],
-        port=config["port"]
+        app,
+        host=config['host'],
+        port=config['port']
     )

@@ -3,6 +3,8 @@ from typing import List, Dict
 from utils.geo import get_city_code, get_province_code, get_country_code
 from service.product_search import product_search
 from service.product_detail import get_product_info
+from utils.log import log
+import traceback
 
 product_mcp = FastMCP(
     name='product-mcp-server',
@@ -70,13 +72,19 @@ async def _search_product_nums(location_dict: Dict[str, str], search_type: str) 
         f"{prefix}CityCode": get_city_code(city) if city else ""
     }]
 
+    log.info(f"Search args: {search_args}")
+
     try:
         # 调用产品搜索服务
         results = await product_search(search_args)
+
+        log.info(f"Search results: {results}")
+        
         # 提取产品编号
         return [item["productNum"] for item in results if item.get("productNum")]
     except Exception as e:
-        print(f"产品查询失败: {str(e)}")
+        trace_info = traceback.format_exc()
+        log.error(f"产品查询失败: {str(e)}, trace info: {trace_info}")
         return []
 
 
@@ -86,7 +94,7 @@ async def search_dest_product_nums(location_dict: Dict[str, str]) -> List[str]:
     根据目的地查询产品编号
 
     Args:
-        location_dict: 包含地理信息的字典
+        location_dict: 包含地理信息的字典， 包含三个key：country， province， city
 
     Returns:
         匹配的产品编号列表
@@ -100,7 +108,7 @@ async def search_pass_product_nums(location_dict: Dict[str, str]) -> List[str]:
     根据途经地查询产品编号
 
     Args:
-        location_dict: 包含地理信息的字典
+        location_dict: 包含地理信息的字典， 包含三个key：country， province， city
 
     Returns:
         匹配的产品编号列表
@@ -108,19 +116,17 @@ async def search_pass_product_nums(location_dict: Dict[str, str]) -> List[str]:
     return await _search_product_nums(location_dict, "pass")
 
 
-@product_mcp.tool(name="获取产品的景点信息")
+@product_mcp.tool(name="获取产品的旅行信息")
 async def get_product_scenics(product_num: str) -> List[Dict[str, str]]:
     """
-    根据产品编号检索景点信息，返回结构化景点列表
+    根据产品编号检索产品的旅行信息，返回旅行信息
 
     Args:
         product_num: 产品编号 (如 "TP-1001")
 
     Returns:
-        景点信息列表，每个景点包含:
-            - name: 景点名称
-            - description: 景点描述
-        示例: [{"name": "埃菲尔铁塔", "description": "巴黎标志性建筑..."}, ...]
+        旅行信息列表
+        示例: ["...", ...]
         没有景点时返回空列表
     """
     # 获取产品详细信息
@@ -128,26 +134,24 @@ async def get_product_scenics(product_num: str) -> List[Dict[str, str]]:
     if not product_info:
         return []
 
-    scenics_list = []
+    trip_list = []
 
-    # 提取所有景点
+    # 提取所有旅行信息
     try:
         # 遍历所有线路
         for line in product_info.get("lineList", []):
+            log.info(f"线路信息: {line}")
+            try:
             # 遍历线路中的每一天行程
-            for trip in line.get("trips", []):
-                # 遍历每天的景点
-                for scenic in trip.get("scenics", []):
-                    # 提取景点信息
-                    scenic_info = {
-                        "name": scenic.get("name", ""),
-                        "description": scenic.get("description", "")
-                    }
-                    # 仅添加有名称的景点
-                    if scenic_info["name"]:
-                        scenics_list.append(scenic_info)
+                for trip in line.get("trips", []):
+                    log.info(f"行程信息: {trip}")
+                    trip_list.append(trip.get("content", ""))
+            except Exception as e:
+                trace_info = traceback.format_exc()
+                log.error(f"行程提取失败: {str(e)}, trace: {trace_info}")   
 
     except Exception as e:
-        print(f"景点提取失败: {str(e)}")
+        trace_info = traceback.format_exc()
+        log.error(f"景点提取失败: {str(e)}, trace: {trace_info}")
 
-    return scenics_list
+    return trip_list

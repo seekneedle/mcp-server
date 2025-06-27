@@ -28,7 +28,8 @@ ALL_MCPS = [
     {
         'path': '/v1/product',
         'mcp': product_mcp,
-        'middlewares': []
+        'middlewares': [],
+        'app': product_mcp.sse_app()
     }
 ]
 
@@ -40,14 +41,14 @@ def start_server():
     routes = [
         Mount(
             item['path'],
-            app=item['mcp'].sse_app(),
+            app=item['app'],
             middleware=item.get('middlewares', [])
         )
         for item in ALL_MCPS
     ]
 
     # 合并生命周期（假设至少有一个MCP）
-    lifespans = [m['mcp'].lifespan for m in ALL_MCPS]
+    lifespans = [m['app'].lifespan for m in ALL_MCPS]
     combined_lifespan = lifespans[0] if len(lifespans) == 1 else combine_lifespans(*lifespans)
 
     # 创建应用
@@ -60,6 +61,6 @@ def start_server():
     # 启动服务
     uvicorn.run(
         app,
-        host=config['host'],
+        host=config['ip'],
         port=config['port']
     )

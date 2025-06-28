@@ -5,6 +5,8 @@ from service.product_search import product_search
 from service.product_detail import get_product_info
 from utils.log import log
 import traceback
+import asyncio
+from service.product_feature_search import get_feature_desc
 
 product_mcp = FastMCP(
     name='product-mcp-server',
@@ -13,33 +15,6 @@ product_mcp = FastMCP(
     """,
     on_duplicate_tools='ignore'
 )
-
-
-@product_mcp.prompt(name="提取国家、省份、城市列表")
-def extract_location(desc: str) -> str:
-    """从文本中提取所有明确提到的地点信息，按层级结构解析为国家、省份、城市，输出JSON格式列表"""
-    return f"""
-请严格按以下要求处理文本：
-1. 提取描述中所有明确提到的**国家、省份、城市**名称
-2. 每个地点独立生成一个JSON对象，包含三个字段：
-   - country：国家名称（如未提及则留空字符串）
-   - province：省份/直辖市/自治区名称
-   - city：城市名称
-3. 处理规则：
-   - 直辖市（如北京/上海）的province字段填直辖市名，city字段留空
-   - 层级关系处理（示例）：
-        "中国广东省广州市" → {{"country":"中国", "province":"广东省", "city":"广州市"}}
-        "上海市浦东新区" → {{"country":"", "province":"上海市", "city":"浦东新区"}}
-        "巴黎" → {{"country":"", "province":"", "city":"巴黎"}}
-   - 同一句子中的连续层级自动组合（如"中国浙江杭州"）
-   - 非连续出现的地名分开生成对象
-4. 输出格式：JSON列表，按原文出现顺序排序
-
-待处理描述：
-{desc}
-
-请直接输出JSON列表，不要包含任何解释性文字。
-"""
 
 
 async def _search_product_nums(location_dict: Dict[str, str], search_type: str) -> List[str]:
@@ -117,41 +92,50 @@ async def search_pass_product_nums(location_dict: Dict[str, str]) -> List[str]:
 
 
 @product_mcp.tool(name="获取产品的旅行信息")
-async def get_product_scenics(product_num: str) -> List[Dict[str, str]]:
+async def get_product_infos(product_nums: List[str]) -> List[str]:
     """
-    根据产品编号检索产品的旅行信息，返回旅行信息
+    根据产品编号列表检索产品的旅行信息，返回旅行信息
 
     Args:
-        product_num: 产品编号 (如 "TP-1001")
+        product_nums: 产品编号列表 (如 ["U1001", "U1002"])
 
     Returns:
         旅行信息列表
         示例: ["...", ...]
-        没有景点时返回空列表
+        没有旅行信息时返回空列表
     """
-    # 获取产品详细信息
-    product_info = await get_product_info(product_num)
-    if not product_info:
-        return []
-
     trip_list = []
 
-    # 提取所有旅行信息
-    try:
-        # 遍历所有线路
-        for line in product_info.get("lineList", []):
-            log.info(f"线路信息: {line}")
-            try:
-            # 遍历线路中的每一天行程
-                for trip in line.get("trips", []):
-                    log.info(f"行程信息: {trip}")
-                    trip_list.append(trip.get("content", ""))
-            except Exception as e:
-                trace_info = traceback.format_exc()
-                log.error(f"行程提取失败: {str(e)}, trace: {trace_info}")   
+    # 并发获取所有产品信息
+    product_infos = await asyncio.gather(*[get_product_info(num) for num in product_nums])
 
-    except Exception as e:
-        trace_info = traceback.format_exc()
-        log.error(f"景点提取失败: {str(e)}, trace: {trace_info}")
+    for product_info in product_infos:
+        if not product_info:
+            continue
+
+        # 提取所有旅行信息
+        try:
+            # 遍历所有线路
+            for line in product_info.get("lineList", []):
+                log.info(f"线路信息: {line}")
+                try:
+                    # 遍历线路中的每一天行程
+                    for trip in line.get("trips", []):
+                        log.info(f"行程信息: {trip}")
+                        trip_infos = []
+                        trip_infos.append(get_feature_desc(trip, "行程内容描述", 'content'))
+                        trip_infos.append(get_feature_desc(trip, "当天行程-交通信息（出发地、出发时间、目的地、到达时间、交通类型，bus-大巴；minibus-中巴；train-火车；ship-轮船；liner-游轮；airplane-飞机；99-其他；、）", 'scheduleTraffics',
+                                                                         ["departure", "departureTime", "destination",
+                                                                          "arrivalTime", "trafficType"]))
+                        trip_infos.append(get_feature_desc(trip, "酒店信息（酒店名称、星级 1 一星 2 两星 3 三星 4 四星 5 五星）", 'hotels', ["name", "star"]))
+                        trip_infos.append(get_feature_desc(trip, "特色商店（商店名称、特色产品、商店介绍）", 'stores', ["name", "mainProducts", "description"]))
+                        trip_list.append("\n".join(trip_infos))
+                except Exception as e:
+                    trace_info = traceback.format_exc()
+                    log.error(f"行程提取失败: {str(e)}, trace: {trace_info}")
+
+        except Exception as e:
+            trace_info = traceback.format_exc()
+            log.error(f"旅行信息提取失败: {str(e)}, trace: {trace_info}")
 
     return trip_list

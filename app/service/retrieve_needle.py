@@ -12,11 +12,11 @@ HEADERS = {
     'Authorization': AUTH
 }
 
-async def retrieve_needle(query: str, top_k: int):
+async def retrieve_needle(query: str, index_id: str=ID, top_k: int=3, min_score: float=0.3):
     data = {
-        "id": ID,  # 确保ID已定义
+        "id": index_id,
         "query": query,
-        "min_score": 0,
+        "min_score": min_score,
         "rerank_top_k": top_k,
         "top_k": top_k * 5,
         "sparse_top_k": top_k * 5
@@ -33,12 +33,8 @@ async def retrieve_needle(query: str, top_k: int):
                 response.raise_for_status()  # 检查HTTP状态码
                 result = await response.json()
 
-                product_nums = [
-                    chunk['metadata']['doc_name']
-                    for chunk in result['data']['chunks']
-                ]
-                log.info(f"retrieve_needle query: {query}, product_nums: {product_nums}")
-                return product_nums
+                log.info(f"retrieve_needle query: {query}, chunks: {result['data']['chunks']}")
+                return result['data']['chunks']
 
         except aiohttp.ClientError as e:
             log.error(f"retrieve_needle HTTP请求失败: {e}")

@@ -118,6 +118,24 @@ async def get_product_infos(product_nums: List[str]) -> List[str]:
             # 遍历所有线路
             for line in product_info.get("lineList", []):
                 log.info(f"线路信息: {line}")
+                traffic_infos = []
+                traffic_infos.append(get_feature_desc(line, "去程交通", 'goTransportName'))
+                traffic_infos.append(get_feature_desc(line,
+                                                         "去程航班（如果去程交通是飞机时，包括航空公司编码、航空公司名称、航班号、启程机场编码、去程机场名称、启程出发时间、到达机场编码、到达机场名称、到达时间、日期差、航班顺序）",
+                                                         'goAirports',
+                                                         ["airlineCode", "airlineName", "flightNo", "startAirportCode",
+                                                          "startAirportName", "startTime", "arriveAirportCode",
+                                                          "arriveAirportName", "arriveTime", "days", "flightSort"]))
+                traffic_infos.append(get_feature_desc(line, "回程交通", 'backTransportName'))
+                traffic_infos.append(get_feature_desc(line,
+                                                         "回程航班（如果回程交通是飞机时，包括航空公司编码、航空公司名称、航班号、回程机场编码、回程机场名称、回程出发时间、到达机场编码、到达机场名称、到达时间、日期差、航班顺序）",
+                                                         'backAirports',
+                                                         ["airlineCode", "airlineName", "flightNo", "startAirportCode",
+                                                          "startAirportName", "startTime", "arriveAirportCode",
+                                                          "arriveAirportName", "arriveTime", "days", "flightSort"]))
+                traffic_infos = "\n".join(traffic_infos)
+                trip_list.append(traffic_infos)
+                log.info(f"交通航班信息: {traffic_infos}")
                 try:
                     # 遍历线路中的每一天行程
                     for trip in line.get("trips", []):

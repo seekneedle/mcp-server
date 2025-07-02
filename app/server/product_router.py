@@ -7,6 +7,7 @@ from utils.log import log
 import traceback
 import asyncio
 from service.product_feature_search import get_feature_desc
+from service.image_search import images_search
 
 product_mcp = FastMCP(
     name='product-mcp-server',
@@ -157,3 +158,25 @@ async def get_product_infos(product_nums: List[str]) -> List[str]:
             log.error(f"旅行信息提取失败: {str(e)}, trace: {trace_info}")
 
     return trip_list
+
+
+@product_mcp.tool(name="按照关键字列表检索对应的图片")
+async def keyword_image_search(keywords: List[str]) -> Dict[str, List[str]]:
+    """
+    根据关键字列表搜索对应的图片
+
+    参数:
+        keywords: 要搜索的关键字列表
+
+    返回:
+        字典格式结果，key为关键字，value为对应的图片路径列表
+    """
+    try:
+        log.info(f"开始图片搜索，关键字列表: {keywords}")
+        results = await images_search(keywords)
+        log.info(f"图片搜索完成，结果数量: {sum(len(v) for v in results.values())}")
+        return results
+    except Exception as e:
+        log.error(f"图片搜索失败: {str(e)}")
+        # 返回空字典而不是空列表以保持类型一致性
+        return {keyword: [] for keyword in keywords}

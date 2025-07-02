@@ -3,7 +3,7 @@ from utils.security import decrypt
 import aiohttp
 from utils.log import log
 
-URL = config["needle_base_url"]
+URL = config["needle_base_url"] + "/vector_store/retrieve"
 ID = config["needle_id"]
 AUTH = decrypt(config["needle_auth"])
 

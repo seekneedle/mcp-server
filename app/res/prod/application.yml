@@ -10,7 +10,7 @@ api_base_url: "http://172.21.44.34:3000/v1"
 api_key: "a650de4e3e11c51f4ff77197ef6f7b73acba21a2b9bf5ab03fbd5888a7356333dde187b57ec8a2e9727d3ad4d94bd3f10c2ffdf4eb930504ed71566082b84224aa2fdc1590a461bbc55635ecd4c0812a"
 
 uux_base_url: "https://mapi.uuxlink.com/mcsp/productAi"
-needle_base_url: "http://8.152.213.191:8471/vector_store/retrieve"
+needle_base_url: "http://8.152.213.191:8471"
 needle_id: "icmp3tfyk6"
 image_id: "8lo9pfi3v2"
 needle_auth: "1a9998513e08745d70092e5c018e1f9c4e97dceed90c31ea317a3c1c309e0f6016bfdc3d27eb452f1c7ad81b767b4f5b703acc02e70bd0669a5315f0a4952533"
@@ -29,6 +29,7 @@ database:
     connect_args:
       charset: "utf8mb4"  # 确保连接使用UTF-8
 
+vision_url: "http://api.fotomore.com"
 vision_client_id: ""
 vision_client_secret: ""
 vision_username: ""

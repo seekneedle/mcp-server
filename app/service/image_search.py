@@ -7,11 +7,24 @@ from urllib.parse import unquote
 import aiohttp
 import asyncio
 from typing import List, Dict, Any
+from aiohttp import FormData
+import oss2
 
-CLIENT_SECRET = decrypt(config["vision_client_secret"])
-CLIENT_PASSWORD = decrypt(config["vision_password"])
+IMAGE_URL = config["vision_url"]
+CLIENT_ID = config["vision_client_id"]
+SECRET = decrypt(config["vision_client_secret"])
+USERNAME = config["vision_username"]
+PASSWORD = decrypt(config["vision_password"])
+TYPE = config["vision_grant_type"]
+KB_ID = config["image_id"]
+ADD_URL = config["needle_base_url"] + "/vector_store/file/add"
+AUTH = decrypt(config["needle_auth"])
 
-async def download_image(session: aiohttp.ClientSession, url: str, file_name: str = None, save_dir: str = 'downloads') -> str:
+TEMP_PATH = os.path.join(os.path.dirname(__file__), '..', '..', config['data_dir'], 'image')
+if not os.path.exists(TEMP_PATH):
+    os.makedirs(TEMP_PATH)
+
+async def download_image(session: aiohttp.ClientSession, url: str, file_name: str = None, save_dir: str = TEMP_PATH) -> str:
     """
     下载图片并保存到本地
 
@@ -56,21 +69,95 @@ async def download_image(session: aiohttp.ClientSession, url: str, file_name: st
 
         return file_path
 
+
+async def save_kb(file_name: str, file_content: str) -> None:
+    url = ADD_URL  # 替换为实际URL
+    auth = AUTH  # 替换为实际认证信息
+    kb_id = KB_ID  # 替换为知识库ID
+
+    # 准备表单数据
+    form = FormData()
+    form.add_field("id", kb_id)
+    form.add_field(
+        "files",
+        file_content.encode('utf-8'),
+        filename=file_name,
+        content_type="application/octet-stream"
+    )
+
+    headers = {"Authorization": auth}
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    url,
+                    headers=headers,
+                    data=form
+            ) as response:
+                response.raise_for_status()  # 检查HTTP错误
+                result = await response.text()
+                log.info(f"Saved {file_name} to KB. Response: {result}")
+
+    except aiohttp.ClientError as e:
+        log.error(f"Failed to save {file_name}: {str(e)}")
+    except Exception as e:
+        log.error(f"Unexpected error saving {file_name}: {str(e)}")
+
+
+async def save_oss(file_path: str) -> None:
+    """
+    异步上传文件到OSS存储桶
+    1. 检查OSS是否已存在同名文件
+    2. 如果存在则记录错误日志
+    3. 如果不存在则执行异步上传
+
+    :param file_path: 本地文件路径
+    """
+    # 提取文件名（不含路径）
+    file_name = os.path.basename(file_path)
+
+    try:
+        # 异步检查文件是否存在
+        exist = await OSS_BUCKET.object_exists(file_name)
+
+        if exist:
+            log.error(f"OSS文件已存在，跳过上传: {file_name}")
+            return
+
+        # 执行异步上传
+        async with OSS_BUCKET as bucket:
+            result = await bucket.put_object_from_file(
+                file_name,
+                file_path,
+                progress_callback=lambda pos, total: log.debug(f"上传进度: {pos}/{total} bytes")
+            )
+
+            if result.status == 200:
+                log.info(f"文件上传成功: {file_name} -> OSS")
+            else:
+                log.error(f"文件上传失败({result.status}): {file_name}")
+
+    except oss2.exceptions.OssError as e:
+        log.error(f"OSS操作失败: {str(e)}")
+    except Exception as e:
+        log.error(f"OSS上传异常: {str(e)}")
+
+
 async def search_vision(query: str, search_num: int = 1) -> List[str]:
     file_paths = []
     async with aiohttp.ClientSession() as session:
         # 第一个请求：获取access token
-        token_url = "http://api.fotomore.com/api/oauth2/access_token"
+        token_url = f"{IMAGE_URL}/api/oauth2/access_token"
         token_headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "text/plain"
         }
         token_data = {
-            "client_id": config["vision_client_id"],
-            "client_secret": CLIENT_SECRET,
-            "username": config["vision_username"],
-            "password": CLIENT_PASSWORD,
-            "grant_type": config["vision_grant_type"]
+            "client_id": CLIENT_ID,
+            "client_secret": SECRET,
+            "username": USERNAME,
+            "password": PASSWORD,
+            "grant_type": TYPE
         }
 
         # 发送请求获取token
@@ -82,10 +169,10 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                 log.info(f"成功获取access token: {access_token}")
 
                 # 第二个请求：使用获取的token访问API
-                search_url = f"http://api.fotomore.com/api/purchase/search?keywords={query}&page=1&nums={search_num}"
+                search_url = f"{IMAGE_URL}/api/purchase/search?keywords={query}&page=1&nums={search_num}"
                 search_headers = {
                     "Accept": "text/html",
-                    "api-key": config["vision_client_id"],
+                    "api-key": CLIENT_ID,
                     "authorization": f"Bearer {access_token}"
                 }
 
@@ -120,7 +207,7 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
     return file_paths
 
 async def image_search(query: str) -> List[str]:
-    results = retrieve_needle(query, index_id=config["image_id"])
+    results = retrieve_needle(query, index_id=KB_ID)
     all_results = []
     for result in results:
         all_results.append(result["meta"]["file_name"])

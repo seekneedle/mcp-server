@@ -9,7 +9,11 @@ import asyncio
 from typing import List, Dict
 from aiohttp import FormData
 import alibabacloud_oss_v2 as oss
+import traceback
 
+# 从 config 中读取 OSS 相关配置，并设置环境变量
+os.environ["OSS_ACCESS_KEY_ID"] = config["oss_access_key_id"]
+os.environ["OSS_ACCESS_KEY_SECRET"] = decrypt(config["oss_access_key_secret"])  # 如果有加密，先解
 
 IMAGE_URL = config["vision_url"]
 CLIENT_ID = config["vision_client_id"]
@@ -100,14 +104,15 @@ async def save_kb(file_name: str, file_content: str) -> None:
                 log.info(f"Saved {file_name} to KB. Response: {result}")
 
     except aiohttp.ClientError as e:
-        log.error(f"Failed to save {file_name}: {str(e)}")
+        trace_info = traceback.format_exc()
+        log.error(f"Failed to save {file_name}: {str(e)}, trace: {trace_info}")
     except Exception as e:
-        log.error(f"Unexpected error saving {file_name}: {str(e)}")
+        trace_info = traceback.format_exc()
+        log.error(f"Unexpected error saving {file_name}: {str(e)}, trace: {trace_info}")
 
 
 # 全局 OSS 客户端变量（改为异步安全的初始化方式）
 oss_client = None
-oss_bucket = None
 oss_lock = asyncio.Lock()  # 添加异步锁确保线程安全
 
 
@@ -115,45 +120,29 @@ async def init_oss_client():
     """
     异步初始化OSS客户端（从配置读取参数）
     """
-    global oss_client, oss_bucket
+    global oss_client
 
     async with oss_lock:
-        if oss_client is not None and oss_bucket is not None:
+        if oss_client is not None:
             return
 
-        # 从配置文件获取OSS参数
-        region = config["oss_region"]
-        bucket = config["oss_bucket"]
-        endpoint = config["oss_endpoint"]
+        # 从环境变量中加载凭证信息，用于身份验证
+        credentials_provider = oss.credentials.EnvironmentVariableCredentialsProvider()
 
-        # 使用环境变量或配置文件获取凭证
-        access_key_id = os.getenv("OSS_ACCESS_KEY_ID") or config.get("oss_access_key_id")
-        access_key_secret = os.getenv("OSS_ACCESS_KEY_SECRET") or config.get("oss_access_key_secret")
+        # 加载SDK的默认配置，并设置凭证提供者
+        cfg = oss.config.load_default()
+        cfg.credentials_provider = credentials_provider
 
-        if not access_key_id or not access_key_secret:
-            log.error("OSS credentials not found in environment or config")
-            return
-
-        # 创建OSS配置
-        cfg = oss.config.Config(
-            credentials_provider=oss.credentials.StaticCredentialsProvider(
-                access_key_id=access_key_id,
-                access_key_secret=access_key_secret
-            ),
-            region=region
-        )
-
-        # 设置自定义端点
-        if endpoint:
-            cfg.endpoint = endpoint
+        # 设置配置中的区域信息
+        cfg.region = config["oss_region"]
 
         # 初始化OSS客户端和存储桶
         try:
             oss_client = oss.Client(cfg)
-            oss_bucket = bucket
             log.info("OSS client initialized successfully")
         except Exception as e:
-            log.error(f"Failed to initialize OSS client: {str(e)}")
+            trace_info = traceback.format_exc()
+            log.error(f"Failed to initialize OSS client: {str(e)}, trace: {trace_info}")
             raise
 
 
@@ -164,30 +153,27 @@ async def save_oss(jpg_path: str) -> str:
     :return: OSS object key
     """
     # 确保客户端已初始化
-    if oss_client is None or oss_bucket is None:
+    if oss_client is None:
         await init_oss_client()
 
     # 生成唯一object key（使用UUID + 原始文件名）
     file_name = os.path.basename(jpg_path)
-    unique_id = str(uuid.uuid4())
-    object_key = f"{unique_id}_{file_name}"
+    object_key = file_name
 
     try:
         # 使用异步方式上传文件
-        result = await oss_client.put_object_from_file(
+        result = oss_client.put_object_from_file(
             oss.PutObjectRequest(
-                bucket=oss_bucket,
+                bucket=config["oss_bucket"],
                 key=object_key
             ),
             jpg_path
         )
-        log.info(f"OSS upload successful: {jpg_path} -> {object_key}")
+        log.info(f"OSS upload result: {jpg_path} -> {object_key}: {result}")
         return object_key
-    except oss.exceptions.ClientError as e:
-        log.error(f"OSS client error: {e}")
-        raise
     except Exception as e:
-        log.error(f"OSS upload failed: {str(e)}")
+        trace_info = traceback.format_exc()
+        log.error(f"OSS upload failed: {str(e)}, trace: {trace_info}")
         raise
 
 
@@ -244,7 +230,8 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                                     file_paths.append(saved_path)
                                     log.info(f"图片已保存到: {saved_path}")
                                 except Exception as e:
-                                    log.error(f"下载图片失败: {e}")
+                                    trace_info = traceback.format_exc()
+                                    log.error(f"下载图片失败: {e}, trace: {trace_info}")
                             else:
                                 log.warning(f"图片主题: {item['title']} 没有下载链接")
                     else:

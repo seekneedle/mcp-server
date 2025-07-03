@@ -6,9 +6,10 @@ import os
 from urllib.parse import unquote
 import aiohttp
 import asyncio
-from typing import List, Dict, Any
+from typing import List, Dict
 from aiohttp import FormData
-import oss2
+import alibabacloud_oss_v2 as oss
+
 
 IMAGE_URL = config["vision_url"]
 CLIENT_ID = config["vision_client_id"]
@@ -104,43 +105,69 @@ async def save_kb(file_name: str, file_content: str) -> None:
         log.error(f"Unexpected error saving {file_name}: {str(e)}")
 
 
-async def save_oss(file_path: str) -> None:
+# 全局OSS客户端变量
+oss_client = None
+oss_bucket = None
+
+
+def init_oss_client(region, bucket, endpoint=None):
     """
-    异步上传文件到OSS存储桶
-    1. 检查OSS是否已存在同名文件
-    2. 如果存在则记录错误日志
-    3. 如果不存在则执行异步上传
-
-    :param file_path: 本地文件路径
+    初始化全局OSS客户端
+    :param region: OSS存储区域（如'oss-cn-hangzhou'）
+    :param bucket: OSS存储桶名称
+    :param endpoint: 自定义端点URL（可选）
     """
-    # 提取文件名（不含路径）
-    file_name = os.path.basename(file_path)
+    global oss_client, oss_bucket
 
-    try:
-        # 异步检查文件是否存在
-        exist = await OSS_BUCKET.object_exists(file_name)
+    # 从环境变量加载凭证（需设置ALIBABA_CLOUD_ACCESS_KEY_ID和ALIBABA_CLOUD_ACCESS_KEY_SECRET）
+    credentials_provider = oss.credentials.EnvironmentVariableCredentialsProvider()
 
-        if exist:
-            log.error(f"OSS文件已存在，跳过上传: {file_name}")
-            return
+    # 创建OSS配置
+    cfg = oss.config.Config(
+        credentials_provider=credentials_provider,
+        region=region
+    )
 
-        # 执行异步上传
-        async with OSS_BUCKET as bucket:
-            result = await bucket.put_object_from_file(
-                file_name,
-                file_path,
-                progress_callback=lambda pos, total: log.debug(f"上传进度: {pos}/{total} bytes")
-            )
+    # 设置自定义端点（如果提供）
+    if endpoint:
+        cfg.endpoint = endpoint
 
-            if result.status == 200:
-                log.info(f"文件上传成功: {file_name} -> OSS")
-            else:
-                log.error(f"文件上传失败({result.status}): {file_name}")
+    # 初始化全局客户端和存储桶
+    oss_client = oss.Client(cfg)
+    oss_bucket = bucket
 
-    except oss2.exceptions.OssError as e:
-        log.error(f"OSS操作失败: {str(e)}")
-    except Exception as e:
-        log.error(f"OSS上传异常: {str(e)}")
+
+def save_oss(jpg_path):
+    """
+    上传JPG文件到预配置的OSS存储桶
+    :param jpg_path: 本地JPG文件路径
+    :return: 上传结果对象
+    """
+    if oss_client is None or oss_bucket is None:
+        raise RuntimeError("OSS客户端未初始化，请先调用init_oss_client()")
+
+    # 从文件路径提取文件名作为OSS对象名
+    object_key = os.path.basename(jpg_path)
+
+    # 执行文件上传
+    result = oss_client.put_object_from_file(
+        oss.PutObjectRequest(
+            bucket=oss_bucket,
+            key=object_key
+        ),
+        jpg_path
+    )
+
+    # 返回上传结果
+    return result
+
+
+# 初始化OSS客户端（只需执行一次）
+init_oss_client(
+    region='oss-cn-hangzhou',
+    bucket='my-photo-bucket',
+    endpoint='https://custom-endpoint.aliyuncs.com'  # 可选
+)
 
 
 async def search_vision(query: str, search_num: int = 1) -> List[str]:
@@ -189,8 +216,10 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                                     saved_path = await download_image(
                                         session,
                                         item['down_url'],
-                                        file_name=f"{item['id']}_{item.get('title', 'image')}.jpg"
+                                        file_name=f"{item.get('title', 'image')}.jpg"
                                     )
+                                    await save_oss(saved_path)
+                                    await save_kb(item.get('title', 'image'), f"{item['id']}_{item.get('title', 'image')}.jpg\n{query}")
                                     file_paths.append(saved_path)
                                     log.info(f"图片已保存到: {saved_path}")
                                 except Exception as e:
@@ -207,7 +236,7 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
     return file_paths
 
 async def image_search(query: str) -> List[str]:
-    results = retrieve_needle(query, index_id=KB_ID)
+    results = await retrieve_needle(query, index_id=KB_ID)
     all_results = []
     for result in results:
         all_results.append(result["meta"]["file_name"])

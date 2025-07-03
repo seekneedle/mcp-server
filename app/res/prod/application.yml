@@ -30,8 +30,8 @@ database:
       charset: "utf8mb4"  # 确保连接使用UTF-8
 
 vision_url: "http://api.fotomore.com"
-vision_client_id: ""
-vision_client_secret: ""
-vision_username: ""
-vision_password: ""
-vision_grant_type: ""
+vision_client_id: "48c075832b1a555aa7b16cd860ff8c48"
+vision_client_secret: "e4dddc6874f5f1b41acc5bda32e55d7601c5e6c55b6c3bd45182577ffe1d98794a44750de0d4821c6375feb725fefbb5efb2d4472ffde56eb54ed7c2ee057e91"
+vision_username: "zhongxin"
+vision_password: "217ccd53c423bf8f08f77633d70cb47c491fcc6e06aec010f989987067448f9f"
+vision_grant_type: "authorization_code"

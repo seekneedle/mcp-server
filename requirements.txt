@@ -12,4 +12,4 @@ langchain==0.3.21
 mcp==1.9.4
 fastmcp==2.8.1
 pymysql==1.1.1
-oss2==2.19.1
+alibabacloud_oss_v2==1.1.2

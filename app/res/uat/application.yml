@@ -35,4 +35,7 @@ vision_client_secret: "9adcb723254018ca990d951681a5afcff3085cd2c1e9bfca4999ed731
 vision_username: "zhongxin"
 vision_password: "7d16cda2b5681b5a7344293ca281bbe68c8913f9ace01e666cc1f129250ce1df"
 vision_grant_type: "authorization_code"
-      
+
+oss_region: ""
+oss_bucket: ""
+oss_endpoint: ""

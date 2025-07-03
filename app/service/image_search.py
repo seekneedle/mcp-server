@@ -105,69 +105,90 @@ async def save_kb(file_name: str, file_content: str) -> None:
         log.error(f"Unexpected error saving {file_name}: {str(e)}")
 
 
-# 全局OSS客户端变量
+# 全局 OSS 客户端变量（改为异步安全的初始化方式）
 oss_client = None
 oss_bucket = None
+oss_lock = asyncio.Lock()  # 添加异步锁确保线程安全
 
 
-def init_oss_client(region, bucket, endpoint=None):
+async def init_oss_client():
     """
-    初始化全局OSS客户端
-    :param region: OSS存储区域（如'oss-cn-hangzhou'）
-    :param bucket: OSS存储桶名称
-    :param endpoint: 自定义端点URL（可选）
+    异步初始化OSS客户端（从配置读取参数）
     """
     global oss_client, oss_bucket
 
-    # 从环境变量加载凭证（需设置ALIBABA_CLOUD_ACCESS_KEY_ID和ALIBABA_CLOUD_ACCESS_KEY_SECRET）
-    credentials_provider = oss.credentials.EnvironmentVariableCredentialsProvider()
+    async with oss_lock:
+        if oss_client is not None and oss_bucket is not None:
+            return
 
-    # 创建OSS配置
-    cfg = oss.config.Config(
-        credentials_provider=credentials_provider,
-        region=region
-    )
+        # 从配置文件获取OSS参数
+        region = config["oss_region"]
+        bucket = config["oss_bucket"]
+        endpoint = config["oss_endpoint"]
 
-    # 设置自定义端点（如果提供）
-    if endpoint:
-        cfg.endpoint = endpoint
+        # 使用环境变量或配置文件获取凭证
+        access_key_id = os.getenv("OSS_ACCESS_KEY_ID") or config.get("oss_access_key_id")
+        access_key_secret = os.getenv("OSS_ACCESS_KEY_SECRET") or config.get("oss_access_key_secret")
 
-    # 初始化全局客户端和存储桶
-    oss_client = oss.Client(cfg)
-    oss_bucket = bucket
+        if not access_key_id or not access_key_secret:
+            log.error("OSS credentials not found in environment or config")
+            return
+
+        # 创建OSS配置
+        cfg = oss.config.Config(
+            credentials_provider=oss.credentials.StaticCredentialsProvider(
+                access_key_id=access_key_id,
+                access_key_secret=access_key_secret
+            ),
+            region=region
+        )
+
+        # 设置自定义端点
+        if endpoint:
+            cfg.endpoint = endpoint
+
+        # 初始化OSS客户端和存储桶
+        try:
+            oss_client = oss.Client(cfg)
+            oss_bucket = bucket
+            log.info("OSS client initialized successfully")
+        except Exception as e:
+            log.error(f"Failed to initialize OSS client: {str(e)}")
+            raise
 
 
-def save_oss(jpg_path):
+async def save_oss(jpg_path: str) -> str:
     """
-    上传JPG文件到预配置的OSS存储桶
-    :param jpg_path: 本地JPG文件路径
-    :return: 上传结果对象
+    异步上传文件到OSS，生成唯一object key
+    :param jpg_path: 本地文件路径
+    :return: OSS object key
     """
+    # 确保客户端已初始化
     if oss_client is None or oss_bucket is None:
-        raise RuntimeError("OSS客户端未初始化，请先调用init_oss_client()")
+        await init_oss_client()
 
-    # 从文件路径提取文件名作为OSS对象名
-    object_key = os.path.basename(jpg_path)
+    # 生成唯一object key（使用UUID + 原始文件名）
+    file_name = os.path.basename(jpg_path)
+    unique_id = str(uuid.uuid4())
+    object_key = f"{unique_id}_{file_name}"
 
-    # 执行文件上传
-    result = oss_client.put_object_from_file(
-        oss.PutObjectRequest(
-            bucket=oss_bucket,
-            key=object_key
-        ),
-        jpg_path
-    )
-
-    # 返回上传结果
-    return result
-
-
-# 初始化OSS客户端（只需执行一次）
-init_oss_client(
-    region='oss-cn-hangzhou',
-    bucket='my-photo-bucket',
-    endpoint='https://custom-endpoint.aliyuncs.com'  # 可选
-)
+    try:
+        # 使用异步方式上传文件
+        result = await oss_client.put_object_from_file(
+            oss.PutObjectRequest(
+                bucket=oss_bucket,
+                key=object_key
+            ),
+            jpg_path
+        )
+        log.info(f"OSS upload successful: {jpg_path} -> {object_key}")
+        return object_key
+    except oss.exceptions.ClientError as e:
+        log.error(f"OSS client error: {e}")
+        raise
+    except Exception as e:
+        log.error(f"OSS upload failed: {str(e)}")
+        raise
 
 
 async def search_vision(query: str, search_num: int = 1) -> List[str]:
@@ -235,18 +256,18 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
 
     return file_paths
 
-async def image_search(query: str) -> List[str]:
+async def image_search(query: str, image_num) -> List[str]:
     results = await retrieve_needle(query, index_id=KB_ID)
     all_results = []
     for result in results:
         all_results.append(result["meta"]["file_name"])
-    if len(results) < 3:
+    if len(results) < image_num:
         vision_results = await search_vision(query, 3 - len(results))
         all_results.extend(vision_results)
     return all_results
 
-async def images_search(queries: List[str]) -> Dict[str, List[str]]:
-    tasks = [image_search(query) for query in queries]
+async def images_search(queries: List[str], image_num: int) -> Dict[str, List[str]]:
+    tasks = [image_search(query, image_num) for query in queries]
     results = await asyncio.gather(*tasks)
 
     all_results = {}

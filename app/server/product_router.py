@@ -161,19 +161,20 @@ async def get_product_infos(product_nums: List[str]) -> List[str]:
 
 
 @product_mcp.tool(name="按照关键字列表检索对应的图片")
-async def keyword_image_search(keywords: List[str]) -> Dict[str, List[str]]:
+async def keyword_image_search(keywords: List[str], image_num: int=3) -> Dict[str, List[str]]:
     """
     根据关键字列表搜索对应的图片
 
     参数:
         keywords: 要搜索的关键字列表
+        image_num: 每个关键字检索到的图片数量
 
     返回:
         字典格式结果，key为关键字，value为对应的图片路径列表
     """
     try:
         log.info(f"开始图片搜索，关键字列表: {keywords}")
-        results = await images_search(keywords)
+        results = await images_search(keywords, image_num)
         log.info(f"图片搜索完成，结果数量: {sum(len(v) for v in results.values())}")
         return results
     except Exception as e:

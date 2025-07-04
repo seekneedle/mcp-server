@@ -22,12 +22,12 @@ database:
   username: "travel_guide_prod"
   password: "8337bb1ae2a5da4635df3e8666804bc9137c80fe518b109a5856582be2bd2742f10f5cc698f5d7acd54f35b3c48d1feb"
   driver: "pymysql"
-  encoding: "utf8mb4"  # 指定编码
+  encoding: "utf8mb4"
   pool_options:
     pool_pre_ping: true
     pool_recycle: 3600
     connect_args:
-      charset: "utf8mb4"  # 确保连接使用UTF-8
+      charset: "utf8mb4"
 
 vision_url: "http://api.fotomore.com"
 vision_client_id: "48c075832b1a555aa7b16cd860ff8c48"
@@ -36,7 +36,7 @@ vision_username: "zhongxin"
 vision_password: "217ccd53c423bf8f08f77633d70cb47c491fcc6e06aec010f989987067448f9f"
 vision_grant_type: "authorization_code"
 
-oss_access_key_id: ""
-oss_access_key_secret: ""
+oss_access_key_id: "123"
+oss_access_key_secret: "217ccd53c423bf8f08f77633d70cb47c491fcc6e06aec010f989987067448f9f"
 oss_region: "cn-beijing"
 oss_bucket: "uux-public"

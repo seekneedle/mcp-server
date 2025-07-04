@@ -175,7 +175,7 @@ async def keyword_image_search(keywords: List[str], image_num: int=3) -> Dict[st
     try:
         log.info(f"开始图片搜索，关键字列表: {keywords}")
         results = await images_search(keywords, image_num)
-        log.info(f"图片搜索完成，结果数量: {sum(len(v) for v in results.values())}")
+        log.info(f"图片搜索完成，结果: {results}")
         return results
     except Exception as e:
         log.error(f"图片搜索失败: {str(e)}")

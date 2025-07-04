@@ -76,39 +76,33 @@ async def download_image(session: aiohttp.ClientSession, url: str, file_name: st
 
 
 async def save_kb(file_name: str, file_content: str) -> None:
-    url = ADD_URL  # 替换为实际URL
-    auth = AUTH  # 替换为实际认证信息
-    kb_id = KB_ID  # 替换为知识库ID
+    url = ADD_URL
+    auth_header = AUTH
+    kb_id = KB_ID
 
-    # 准备表单数据
-    form = FormData()
-    form.add_field("id", kb_id)
-    form.add_field(
-        "files",
+    # 创建表单数据
+    form_data = aiohttp.FormData()
+    form_data.add_field('id', kb_id)
+    form_data.add_field(
+        'files',
         file_content.encode('utf-8'),
         filename=file_name,
-        content_type="application/octet-stream"
+        content_type='text/plain'
     )
 
-    headers = {"Authorization": auth}
+    headers = {
+        "Authorization": auth_header
+    }
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    url,
-                    headers=headers,
-                    data=form
-            ) as response:
-                response.raise_for_status()  # 检查HTTP错误
-                result = await response.text()
-                log.info(f"Saved {file_name} to KB. Response: {result}")
-
+            async with session.post(url, data=form_data, headers=headers) as response:
+                response_text = await response.text()
+                status_code = response.status
+                log.info(f"save kb result: status={status_code}, content={response_text}")
     except aiohttp.ClientError as e:
         trace_info = traceback.format_exc()
-        log.error(f"Failed to save {file_name}: {str(e)}, trace: {trace_info}")
-    except Exception as e:
-        trace_info = traceback.format_exc()
-        log.error(f"Unexpected error saving {file_name}: {str(e)}, trace: {trace_info}")
+        log.error(f"HTTP request failed: {e}, trace: {trace_info}")
 
 
 # 全局 OSS 客户端变量（改为异步安全的初始化方式）
@@ -146,7 +140,7 @@ async def init_oss_client():
             raise
 
 
-async def save_oss(jpg_path: str) -> str:
+async def save_oss(jpg_path: str) -> bool:
     """
     异步上传文件到OSS，生成唯一object key
     :param jpg_path: 本地文件路径
@@ -156,21 +150,27 @@ async def save_oss(jpg_path: str) -> str:
     if oss_client is None:
         await init_oss_client()
 
-    # 生成唯一object key（使用UUID + 原始文件名）
+
     file_name = os.path.basename(jpg_path)
-    object_key = file_name
+    object_key = config["oss_path"] + file_name
 
     try:
-        # 使用异步方式上传文件
-        result = oss_client.put_object_from_file(
-            oss.PutObjectRequest(
-                bucket=config["oss_bucket"],
-                key=object_key
-            ),
-            jpg_path
+        result = oss_client.is_object_exist(
+            bucket=config["oss_bucket"],
+            key=object_key,
         )
-        log.info(f"OSS upload result: {jpg_path} -> {object_key}: {result}")
-        return object_key
+        log.info(f"OSS object exist result: {object_key}: {result}")
+        if not result:
+            result = oss_client.put_object_from_file(
+                oss.PutObjectRequest(
+                    bucket=config["oss_bucket"],
+                    key=object_key
+                ),
+                jpg_path
+            )
+            log.info(f"OSS upload result: {object_key}: {result}")
+            return True
+        return False
     except Exception as e:
         trace_info = traceback.format_exc()
         log.error(f"OSS upload failed: {str(e)}, trace: {trace_info}")
@@ -178,7 +178,7 @@ async def save_oss(jpg_path: str) -> str:
 
 
 async def search_vision(query: str, search_num: int = 1) -> List[str]:
-    file_paths = []
+    links = []
     async with aiohttp.ClientSession() as session:
         # 第一个请求：获取access token
         token_url = f"{IMAGE_URL}/api/oauth2/access_token"
@@ -218,19 +218,21 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                         for item in images:
                             if 'down_url' in item:
                                 log.info(f"开始下载图片 {item['id']}...")
+                                file_name = f"{item.get('title', 'image')}.jpg"
                                 try:
                                     # 使用图片ID作为文件名前缀
                                     saved_path = await download_image(
                                         session,
                                         item['down_url'],
-                                        file_name=f"{item.get('title', 'image')}.jpg"
+                                        file_name=file_name
                                     )
-                                    await save_oss(saved_path)
-                                    await save_kb(item.get('title', 'image'), f"{item['id']}_{item.get('title', 'image')}.jpg\n{query}")
-                                    file_paths.append(saved_path)
-                                    if len(file_paths) >= search_num:
-                                        break
-                                    log.info(f"图片已保存到: {saved_path}")
+                                    saved = await save_oss(saved_path)
+                                    if saved:
+                                        await save_kb(f"{item.get('title', 'image')}.txt", f"{file_name}###{query}")
+                                        links.append(f"{config['oss_link']}{file_name}")
+                                        if len(links) >= search_num:
+                                            break
+                                        log.info(f"图片已保存到: {saved_path}")
                                 except Exception as e:
                                     trace_info = traceback.format_exc()
                                     log.error(f"下载图片失败: {e}, trace: {trace_info}")
@@ -243,13 +245,17 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                 log.error(f"获取access token失败，状态码: {token_response.status}")
                 log.error(await token_response.text())
 
-    return file_paths
+    return links
 
 async def image_search(query: str, image_num) -> List[str]:
     results = await retrieve_needle(query, index_id=KB_ID)
     all_results = []
     for result in results:
-        all_results.append(result["meta"]["file_name"])
+        text = result['text']
+        file_name = text.split('###')[0]
+        if file_name is not None and file_name != '':
+            link = f"{config['oss_link']}{file_name}"
+            all_results.append(link)
     if len(results) < image_num:
         vision_results = await search_vision(query, 3 - len(results))
         all_results.extend(vision_results)

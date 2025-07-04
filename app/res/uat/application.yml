@@ -2,7 +2,7 @@ log_level: "info"
 project_name: "mcp-server"
 
 ip: 0.0.0.0
-port: 8701
+port: 8705
 
 data_dir: "data"
 
@@ -12,7 +12,7 @@ api_key: "0ab101f0a452a8bd108794f8c401b3e1238e99a91d01ccb117ef9b9f6f3fbec3541c00
 uux_base_url: "https://mapi.uuxlink.com/mcsp/productAi"
 needle_base_url: "http://8.152.213.191:8475"
 needle_id: "icmp3tfyk6"
-image_id: "8lo9pfi3v2"
+image_id: "8au4m6e2d4"
 needle_auth: "77a83b2f36412966b18adf84d10504819685974757864ceaa8b23c6909c33c07d02563c251c75d780c0e2bd8e875e5bf"
 
 database:
@@ -40,3 +40,5 @@ oss_access_key_id: "LTAI5t6GWS1YCj3Hhsf3c6eJ"
 oss_access_key_secret: "fbd6122a1c288b75369a70a5a26cf910387f4a725fbd0b4b84e48a6f888cd0f83e7c153e88c929e7aabbd19f7c853c45"
 oss_region: "cn-beijing"
 oss_bucket: "uux-public"
+oss_path: "travel/guide/img/"
+oss_link: "https://uux-public.oss-cn-beijing.aliyuncs.com/travel/guide/img/"

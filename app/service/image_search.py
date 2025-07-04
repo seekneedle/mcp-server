@@ -178,6 +178,7 @@ async def save_oss(jpg_path: str) -> bool:
 
 
 async def search_vision(query: str, search_num: int = 1) -> List[str]:
+    log.info(f"检索vision, query: {query}, search_num: {search_num}")
     links = []
     async with aiohttp.ClientSession() as session:
         # 第一个请求：获取access token
@@ -230,9 +231,9 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                                     if saved:
                                         await save_kb(f"{item.get('title', 'image')}.txt", f"{file_name}###{query}")
                                         links.append(f"{config['oss_link']}{file_name}")
+                                        log.info(f"图片已保存到: {saved_path}")
                                         if len(links) >= search_num:
                                             break
-                                        log.info(f"图片已保存到: {saved_path}")
                                 except Exception as e:
                                     trace_info = traceback.format_exc()
                                     log.error(f"下载图片失败: {e}, trace: {trace_info}")
@@ -257,7 +258,7 @@ async def image_search(query: str, image_num) -> List[str]:
             link = f"{config['oss_link']}{file_name}"
             all_results.append(link)
     if len(results) < image_num:
-        vision_results = await search_vision(query, 3 - len(results))
+        vision_results = await search_vision(query, image_num - len(all_results))
         all_results.extend(vision_results)
     return all_results
 

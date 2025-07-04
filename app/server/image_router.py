@@ -25,7 +25,7 @@ async def keyword_image_search(keywords: List[str], image_num: int=3) -> Dict[st
         字典格式结果，key为关键字，value为对应的图片路径列表
     """
     try:
-        log.info(f"开始图片搜索，关键字列表: {keywords}")
+        log.info(f"开始图片搜索，关键字列表: {keywords}, 检索个数: {image_num}")
         results = await images_search(keywords, image_num)
         log.info(f"图片搜索完成，结果: {results}")
         return results

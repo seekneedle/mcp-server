@@ -203,7 +203,7 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                 log.info(f"成功获取access token: {access_token}")
 
                 # 第二个请求：使用获取的token访问API
-                search_url = f"{IMAGE_URL}/api/purchase/search?keywords={query}&page=1&nums={search_num}"
+                search_url = f"{IMAGE_URL}/api/purchase/search?keywords={query}&page=1&nums=10&asset_type=1&publish_times=2"
                 search_headers = {
                     "Accept": "text/html",
                     "api-key": CLIENT_ID,
@@ -228,6 +228,8 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                                     await save_oss(saved_path)
                                     await save_kb(item.get('title', 'image'), f"{item['id']}_{item.get('title', 'image')}.jpg\n{query}")
                                     file_paths.append(saved_path)
+                                    if len(file_paths) >= search_num:
+                                        break
                                     log.info(f"图片已保存到: {saved_path}")
                                 except Exception as e:
                                     trace_info = traceback.format_exc()

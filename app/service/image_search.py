@@ -203,7 +203,7 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                 log.info(f"成功获取access token: {access_token}")
 
                 # 第二个请求：使用获取的token访问API
-                search_url = f"{IMAGE_URL}/api/purchase/search?keywords={query}&page=1&nums=10&asset_type=1&publish_times=2"
+                search_url = f"{IMAGE_URL}/api/purchase/search?keywords={query}&page=1&asset_type=1&publish_times=2"
                 search_headers = {
                     "Accept": "text/html",
                     "api-key": CLIENT_ID,

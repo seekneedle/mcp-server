@@ -10,6 +10,10 @@ from typing import List, Dict
 from aiohttp import FormData
 import alibabacloud_oss_v2 as oss
 import traceback
+import concurrent.futures
+
+# 创建线程池执行器用于后台任务
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
 
 # 从 config 中读取 OSS 相关配置，并设置环境变量
 os.environ["OSS_ACCESS_KEY_ID"] = config["oss_access_key_id"]
@@ -140,41 +144,79 @@ async def init_oss_client():
             raise
 
 
-async def save_oss(jpg_path: str) -> bool:
+def sync_check_oss_exist(object_key: str) -> bool:
     """
-    异步上传文件到OSS，生成唯一object key
-    :param jpg_path: 本地文件路径
-    :return: OSS object key
+    同步检查OSS中文件是否存在（在后台线程中执行）
+    :param object_key: OSS对象键
+    :return: 文件是否存在
     """
-    # 确保客户端已初始化
-    if oss_client is None:
-        await init_oss_client()
-
-
-    file_name = os.path.basename(jpg_path)
-    object_key = config["oss_path"] + file_name
-
+    global oss_client
     try:
         result = oss_client.is_object_exist(
             bucket=config["oss_bucket"],
             key=object_key,
         )
-        log.info(f"OSS object exist result: {object_key}: {result}")
-        if not result:
-            result = oss_client.put_object_from_file(
-                oss.PutObjectRequest(
-                    bucket=config["oss_bucket"],
-                    key=object_key
-                ),
-                jpg_path
-            )
-            log.info(f"OSS upload result: {object_key}: {result}")
-            return True
+        log.info(f"OSS object exist check: {object_key}: {result}")
+        return result
+    except Exception as e:
+        trace_info = traceback.format_exc()
+        log.error(f"OSS exist check failed: {str(e)}, trace: {trace_info}")
         return False
+
+
+async def check_oss_exist(file_name: str) -> bool:
+    """
+    异步检查OSS中文件是否存在
+    :param file_name: 文件名
+    :return: 文件是否存在
+    """
+    # 确保客户端已初始化
+    if oss_client is None:
+        await init_oss_client()
+    
+    object_key = config["oss_path"] + file_name
+    
+    # 在后台线程中执行同步的OSS检查操作
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor, sync_check_oss_exist, object_key)
+
+
+def sync_save_oss(jpg_path: str) -> None:
+    """
+    同步上传文件到OSS（在后台线程中执行）
+    :param jpg_path: 本地文件路径
+    """
+    global oss_client
+    
+    file_name = os.path.basename(jpg_path)
+    object_key = config["oss_path"] + file_name
+
+    try:
+        result = oss_client.put_object_from_file(
+            oss.PutObjectRequest(
+                bucket=config["oss_bucket"],
+                key=object_key
+            ),
+            jpg_path
+        )
+        log.info(f"OSS upload result: {object_key}: {result}")
     except Exception as e:
         trace_info = traceback.format_exc()
         log.error(f"OSS upload failed: {str(e)}, trace: {trace_info}")
-        raise
+
+
+async def save_oss(jpg_path: str) -> None:
+    """
+    异步封装OSS上传操作
+    :param jpg_path: 本地文件路径
+    """
+    # 确保客户端已初始化
+    if oss_client is None:
+        await init_oss_client()
+    
+    # 在后台线程中执行同步的OSS上传操作
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(executor, sync_save_oss, jpg_path)
 
 
 async def search_vision(query: str, search_num: int = 1) -> List[str]:
@@ -217,26 +259,32 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                         log.info(f"成功获取图片数据: {search_json}")
                         images = search_json["data"]["list"]
                         for item in images:
-                            if 'down_url' in item:
-                                log.info(f"开始下载图片 {item['id']}...")
-                                file_name = f"{item.get('title', 'image')}.jpg"
-                                try:
-                                    # 使用图片ID作为文件名前缀
-                                    saved_path = await download_image(
-                                        session,
-                                        item['down_url'],
-                                        file_name=file_name
-                                    )
-                                    saved = await save_oss(saved_path)
-                                    if saved:
-                                        await save_kb(f"{item.get('title', 'image')}.txt", f"{file_name}###{query}")
-                                        links.append(f"{config['oss_link']}{file_name}")
-                                        log.info(f"图片已保存到: {saved_path}")
+                            if 'down_url' in item and item['down_url'] != '':
+                                # 使用图片title作为文件名
+                                file_name = f"{item['title']}.jpg"
+                                
+                                # 检查图片是否已在OSS中存在
+                                exists = await check_oss_exist(file_name)
+                                if not exists:
+                                    log.info(f"开始下载新图片 {item['title']}...")
+                                    try:
+                                        saved_path = await download_image(
+                                            session,
+                                            item['down_url'],
+                                            file_name=file_name
+                                        )
+                                        await save_oss(saved_path)
+                                        await save_kb(f"{item['id']}.txt", f"{file_name}###{query}")
+                                        link = f"{config['oss_link']}{file_name}"
+                                        links.append(link)
+                                        log.info(f"图片已上传到OSS: {saved_path}")
+                                        
                                         if len(links) >= search_num:
                                             break
-                                except Exception as e:
-                                    trace_info = traceback.format_exc()
-                                    log.error(f"下载图片失败: {e}, trace: {trace_info}")
+                                    except Exception as e:
+                                        trace_info = traceback.format_exc()
+                                        log.error(f"下载图片失败: {e}, trace: {trace_info}")
+                                
                             else:
                                 log.warning(f"图片主题: {item['title']} 没有下载链接")
                     else:

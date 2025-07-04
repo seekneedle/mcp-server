@@ -3,6 +3,7 @@ import contextlib
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from server.product_router import product_mcp
+from server.image_router import image_mcp
 import uvicorn
 
 def combine_lifespans(*lifespans):
@@ -30,6 +31,12 @@ ALL_MCPS = [
         'mcp': product_mcp,
         'middlewares': [],
         'app': product_mcp.sse_app()
+    },
+    {
+        'path': '/v1/image',
+        'mcp': image_mcp,
+        'middlewares': [],
+        'app': image_mcp.sse_app()
     }
 ]
 

@@ -273,7 +273,7 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                                             file_name=file_name
                                         )
                                         await save_oss(saved_path)
-                                        await save_kb(f"{item['id']}.txt", f"{file_name}###{query}")
+                                        await save_kb(f"{item['title']}.txt", f"{file_name}###{query}")
                                         link = f"{config['oss_link']}{file_name}"
                                         links.append(link)
                                         log.info(f"图片已上传到OSS: {saved_path}")

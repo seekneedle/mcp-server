@@ -13,7 +13,7 @@ async def image_search(query: str, image_num) -> List[str]:
     results = await retrieve_needle(query, index_id=KB_ID, top_k=image_num)
     all_results = []
     for result in results:
-        file_name = result["filename"]
+        file_name = result["metadata"]["doc_name"]
         split_names = file_name.split(".")[0].split("_")
         title = split_names[0]
         extension = split_names[-1]

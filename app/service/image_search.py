@@ -7,7 +7,6 @@ from urllib.parse import unquote
 import aiohttp
 import asyncio
 from typing import List, Dict
-from aiohttp import FormData
 import alibabacloud_oss_v2 as oss
 import traceback
 import concurrent.futures
@@ -261,7 +260,7 @@ async def search_vision(query: str, search_num: int = 1) -> List[str]:
                         for item in images:
                             if 'down_url' in item and item['down_url'] != '':
                                 # 使用图片title作为文件名
-                                file_name = f"{item['title']}.jpg"
+                                file_name = f"{item['title']}.{item['asset_format']}"
                                 
                                 # 检查图片是否已在OSS中存在
                                 exists = await check_oss_exist(file_name)

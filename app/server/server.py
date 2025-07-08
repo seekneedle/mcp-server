@@ -4,6 +4,7 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from server.product_router import product_mcp
 from server.image_router import image_mcp
+from server.map_router import map_mcp
 import uvicorn
 
 def combine_lifespans(*lifespans):
@@ -28,15 +29,18 @@ def combine_lifespans(*lifespans):
 ALL_MCPS = [
     {
         'path': '/v1/product',
-        'mcp': product_mcp,
         'middlewares': [],
         'app': product_mcp.sse_app()
     },
     {
         'path': '/v1/image',
-        'mcp': image_mcp,
         'middlewares': [],
         'app': image_mcp.sse_app()
+    },
+    {
+        'path': '/v1/map',
+        'middlewares': [],
+        'app': map_mcp.sse_app()
     }
 ]
 

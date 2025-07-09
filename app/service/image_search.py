@@ -10,7 +10,7 @@ executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
 
 KB_ID = config["image_id"]
 
-async def image_search(query: str, image_num) -> List[str]:
+async def image_search(query: str, image_num) -> List[Dict]:
     results = await retrieve_needle(query, index_id=KB_ID, top_k=image_num)
     all_results = []
     for result in results:
@@ -21,10 +21,14 @@ async def image_search(query: str, image_num) -> List[str]:
         encoded = quote(title, encoding='utf-8')
         file_name = encoded + '.' + extension
         link = f"{config['oss_link']}{file_name}"
-        all_results.append(f"图片标题：{title}, 图片关键字：{result['text']}, 图片链接：{link}")
+        all_results.append({
+            "title": title,
+            "keywords": result['text'],
+            "link": link
+        })
     return all_results
 
-async def images_search(queries: List[str], image_num: int) -> Dict[str, List[str]]:
+async def images_search(queries: List[str], image_num: int) -> Dict[str, List[Dict]]:
     tasks = [image_search(query, image_num) for query in queries]
     results = await asyncio.gather(*tasks)
 

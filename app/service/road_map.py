@@ -7,8 +7,8 @@ from typing import List, Dict
 from utils.log import log
 import traceback
 
-DOMESTIC_TEMPLATE = "res/html/amap.html"
-FOREIGN_TEMPLATE = "res/html/tmap.html"
+FOREIGN_TEMPLATE = "res/html/amap.html"
+DOMESTIC_TEMPLATE = "res/html/tmap.html"
 OUTPUT_DIR = Path("/usr/share/nginx/html/static")
 BASE_URL = "http://8.152.213.191/static"
 

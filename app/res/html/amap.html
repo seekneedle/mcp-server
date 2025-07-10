@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>旅行路线图</title>
+    <style>
+        #container {
+            width: 100%;
+            height: 100vh;
+            border: 1px solid #ccc;
+        }
+        .custom-marker {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .marker-circle {
+            background-color: #e74c3c;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            margin-bottom: 5px;
+            border: 2px solid white;
+        }
+        .marker-label {
+            background-color: white;
+            padding: 2px 8px;
+            border-radius: 15px;
+            font-size: 12px;
+            white-space: nowrap;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            font-weight: bold;
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <script src="https://webapi.amap.com/maps?v=2.0&key=e2e4d88737cfd0161dc5efbc6a08fd30&plugin=AMap.MarkerClusterer"></script>
+    <script>
+        // 城市坐标 (经度,纬度) 和颜色
+        var cities = ${cities_json};
+
+        // 计算中心点
+        function calculateCenter(points) {
+            var x = 0, y = 0, z = 0;
+            points.forEach(function(point) {
+                var lng = point[0] * Math.PI / 180;
+                var lat = point[1] * Math.PI / 180;
+
+                x += Math.cos(lat) * Math.cos(lng);
+                y += Math.cos(lat) * Math.sin(lng);
+                z += Math.sin(lat);
+            });
+
+            var total = points.length;
+            x = x / total;
+            y = y / total;
+            z = z / total;
+
+            var centralLng = Math.atan2(y, x) * 180 / Math.PI;
+            var centralLat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI;
+
+            return [centralLng, centralLat];
+        }
+
+        // 计算合适的缩放级别
+        function calculateZoomLevel(points) {
+            var lngs = points.map(p => p[0]);
+            var lats = points.map(p => p[1]);
+
+            var minLng = Math.min(...lngs);
+            var maxLng = Math.max(...lngs);
+            var minLat = Math.min(...lats);
+            var maxLat = Math.max(...lats);
+
+            var lngDiff = maxLng - minLng;
+            var latDiff = maxLat - minLat;
+
+            var maxDiff = Math.max(lngDiff, latDiff);
+
+            if (maxDiff > 30) return 4;
+            if (maxDiff > 15) return 5;
+            if (maxDiff > 7) return 6;
+            if (maxDiff > 3) return 7;
+            if (maxDiff > 1.5) return 8;
+            if (maxDiff > 0.7) return 9;
+            if (maxDiff > 0.3) return 10;
+            if (maxDiff > 0.15) return 11;
+            if (maxDiff > 0.07) return 12;
+            if (maxDiff > 0.03) return 13;
+            return 14;
+        }
+
+        // 获取所有坐标点
+        var points = cities.map(city => city.position);
+
+        // 计算中心点和缩放级别
+        var center = calculateCenter(points);
+        var zoom = calculateZoomLevel(points);
+
+        // 初始化地图
+        var map = new AMap.Map('container', {
+            zoom: zoom,
+            center: center,
+            viewMode: '3D'
+        });
+
+        // 创建标记点
+        var markers = [];
+        cities.forEach(function(city, index) {
+            var marker = new AMap.Marker({
+                position: city.position,
+                map: map,
+                content: createMarkerContent(city.name, city.color, index + 1),
+                offset: new AMap.Pixel(-15, -30)
+            });
+            markers.push(marker);
+
+            // 添加信息窗口
+            marker.on('click', function() {
+                var infoWindow = new AMap.InfoWindow({
+                    content: `<div style="padding:10px;min-width:200px;">
+                                <h3 style="margin:0 0 10px 0;color:${city.color}">${city.name}</h3>
+                                <p>${city.desc}</p>
+                                <p><small>坐标: ${city.position[0].toFixed(4)}, ${city.position[1].toFixed(4)}</small></p>
+                              </div>`,
+                    offset: new AMap.Pixel(0, -30)
+                });
+                infoWindow.open(map, city.position);
+            });
+        });
+
+        // 创建自定义标记内容
+        function createMarkerContent(name, color, number) {
+            return '<div class="custom-marker">' +
+                   '<div class="marker-circle" style="background-color:' + color + '">' + number + '</div>' +
+                   '<div class="marker-label">' + name + '</div>' +
+                   '</div>';
+        }
+
+        // 绘制线路
+        var lineArr = cities.map(city => city.position);
+
+        var polyline = new AMap.Polyline({
+            path: lineArr,
+            strokeColor: "#3366FF",
+            strokeWeight: 4,
+            strokeOpacity: 0.8,
+            strokeStyle: "solid",
+            lineJoin: 'round',
+            lineCap: 'round'
+        });
+
+        map.add(polyline);
+
+        // 添加地图控件
+        map.addControl(new AMap.ControlBar({
+            showZoomBar: true,
+            showControlButton: true,
+            position: {
+                right: '10px',
+                top: '10px'
+            }
+        }));
+
+        map.addControl(new AMap.Scale());
+
+        map.addControl(new AMap.ToolBar({
+            position: {
+                right: '10px',
+                top: '50px'
+            }
+        }));
+    </script>
+</body>
+</html>

@@ -2,6 +2,7 @@ from fastmcp import FastMCP
 from typing import List, Dict
 from utils.log import log
 from service.image_search import images_search
+import traceback
 
 image_mcp = FastMCP(
     name='image-mcp-server',
@@ -30,6 +31,7 @@ async def keyword_image_search(keywords: List[str], image_num: int=3) -> Dict[st
         log.info(f"图片搜索完成，结果: {results}")
         return results
     except Exception as e:
-        log.error(f"图片搜索失败: {str(e)}")
+        trace_info = traceback.format_exc()
+        log.error(f"图片搜索失败: {str(e)}, trace: {trace_info}")
         # 返回空字典而不是空列表以保持类型一致性
         return {keyword: [] for keyword in keywords}

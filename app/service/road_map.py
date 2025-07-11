@@ -106,10 +106,11 @@ async def create_tmap(locations: List[Dict[str, str]]) -> str:
 
 async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
     """使用百炼平台千问模型进行地理编码（使用平台原生JSON解析）"""
-    system_prompt = """你是一个专业的地理编码服务，请严格按以下规则处理：
+    system_prompt = """你是一个专业的地理编码服务，非常了解国外地理位置对应的坐标。请严格按以下规则处理：
 1. 只返回JSON格式：{"longitude": "经度", "latitude": "纬度"}
 2. 坐标使用GCJ-02坐标系
 3. 未知地址返回：{"longitude": "", "latitude": ""}
+4. 所有地名都是国外的。
 
 请返回 {location} 的地理编码"""
 
@@ -122,15 +123,17 @@ async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
             response = await AioGeneration.call(
                 model='qwen-max',
                 prompt=system_prompt.replace("{location}", location),
-                result_format='json',  # 关键参数：启用平台JSON解析
+                result_format='message',
+                response_format={'type': 'json_object'},
                 temperature=0,
                 api_key=api_key
             )
 
             if response.status_code == HTTPStatus.OK:
                 # 直接获取平台解析好的JSON
-                result_json = response.output.choices[0].message['content']
-
+                json_str = response.output.choices[0].message.content
+                log.info(f"{location}解析结果：{json_str}")
+                result_json = json.loads(json_str)
                 # 百炼的JSON模式会自动转换为Python字典
                 lon = result_json.get('longitude', '')
                 lat = result_json.get('latitude', '')

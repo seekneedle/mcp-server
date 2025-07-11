@@ -5,14 +5,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 from utils.log import log
-from utils.security import decrypt
 from utils.config import config
 import traceback
 import httpx
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
-from langchain.output_parsers import JsonOutputParser
-
+from http import HTTPStatus
+from dashscope.aigc.generation import AioGeneration
 from utils.security import decrypt
 
 FOREIGN_TEMPLATE = "res/html/amap.html"
@@ -33,13 +30,6 @@ COLORS = [
 # Configuration (should be moved to config file in production)
 AMAP_KEY = decrypt(config["amap_key"])
 TMAP_KEY = decrypt(config["tmap_key"])
-
-# 解密API密钥
-OPENAI_API_KEY = decrypt(config["api_key"])
-
-# 初始化ChatOpenAI实例
-chat_model = ChatOpenAI(model_name="qwen-max", openai_api_key=OPENAI_API_KEY)
-
 
 async def create_amap(locations: List[Dict[str, str]]) -> str:
     """创建国外地图(使用高德地图)"""
@@ -113,40 +103,57 @@ async def create_tmap(locations: List[Dict[str, str]]) -> str:
         log.error(f"create_tmap失败: {str(e)}, trace: {trace_info}")
         return ""
 
+
 async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
-    """Get coordinates for international locations using Qwen-Plus"""
+    """使用百炼平台千问模型进行地理编码（使用平台原生JSON解析）"""
+    system_prompt = """你是一个专业的地理编码服务，请严格按以下规则处理：
+1. 只返回JSON格式：{"longitude": "经度", "latitude": "纬度"}
+2. 坐标使用GCJ-02坐标系
+3. 未知地址返回：{"longitude": "", "latitude": ""}
+
+请返回 {location} 的地理编码"""
+
     results = []
-    system_instruction = "你是一个乐于助人的助手，能够将地址地理编码为经度和纬度。"
-    json_parser = JsonOutputParser()
+    api_key = decrypt(config['api_key'])
 
-    async with httpx.AsyncClient() as client:
-        for location in locations:
-            try:
-                # 准备消息
-                messages = [
-                    SystemMessage(content=system_instruction),
-                    HumanMessage(content=f"请对以下地址进行地理编码: {location}")
-                ]
+    for location in locations:
+        try:
+            # 调用百炼平台API（启用内置JSON模式）
+            response = await AioGeneration.call(
+                model='qwen-max',
+                prompt=system_prompt.replace("{location}", location),
+                result_format='json',  # 关键参数：启用平台JSON解析
+                temperature=0,
+                api_key=api_key
+            )
 
-                # 调用Qwen-Plus模型
-                response = chat_model(messages)
+            if response.status_code == HTTPStatus.OK:
+                # 直接获取平台解析好的JSON
+                result_json = response.output.choices[0].message['content']
 
-                # 使用langchain的JsonOutputParser解析响应
-                parsed_response = json_parser.parse(response.content)
+                # 百炼的JSON模式会自动转换为Python字典
+                lon = result_json.get('longitude', '')
+                lat = result_json.get('latitude', '')
 
-                if "longitude" in parsed_response and "latitude" in parsed_response:
-                    results.append({
-                        "name": location,
-                        "lng": parsed_response["longitude"],
-                        "lat": parsed_response["latitude"],
-                        "desc": f"Geocoded location: {location}"
-                    })
-                else:
-                    raise ValueError("Unexpected response format.")
-            except Exception as e:
-                log.error(f"Geocoding failed for {location}: {str(e)}")
-                results.append({"name": location, "lng": "", "lat": "", "desc": "Geocoding failed"})
-    log.info(f"生成地址地理编码: {results}")
+                results.append({
+                    "name": location,
+                    "lng": lon,
+                    "lat": lat,
+                    "desc": f"Geocoded: {location}" if lon else "Not found"
+                })
+            else:
+                raise ValueError(f"{response.code}: {response.message}")
+
+        except Exception as e:
+            log.error(f"地址解析失败【{location}】: {str(e)}", exc_info=True)
+            results.append({
+                "name": location,
+                "lng": "",
+                "lat": "",
+                "desc": "Geocoding failed"
+            })
+
+    log.info(f"地理编码完成，成功率：{len([r for r in results if r['lng']])}/{len(results)}")
     return results
 
 

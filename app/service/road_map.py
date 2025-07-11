@@ -9,6 +9,9 @@ from utils.security import decrypt
 from utils.config import config
 import traceback
 import httpx
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
+from langchain.output_parsers import JsonOutputParser
 
 from utils.security import decrypt
 
@@ -30,6 +33,12 @@ COLORS = [
 # Configuration (should be moved to config file in production)
 AMAP_KEY = decrypt(config["amap_key"])
 TMAP_KEY = decrypt(config["tmap_key"])
+
+# 解密API密钥
+OPENAI_API_KEY = decrypt(config["api_key"])
+
+# 初始化ChatOpenAI实例
+chat_model = ChatOpenAI(model_name="qwen-max", openai_api_key=OPENAI_API_KEY)
 
 
 async def create_amap(locations: List[Dict[str, str]]) -> str:
@@ -104,6 +113,43 @@ async def create_tmap(locations: List[Dict[str, str]]) -> str:
         log.error(f"create_tmap失败: {str(e)}, trace: {trace_info}")
         return ""
 
+async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
+    """Get coordinates for international locations using Qwen-Plus"""
+    results = []
+    system_instruction = "你是一个乐于助人的助手，能够将地址地理编码为经度和纬度。"
+    json_parser = JsonOutputParser()
+
+    async with httpx.AsyncClient() as client:
+        for location in locations:
+            try:
+                # 准备消息
+                messages = [
+                    SystemMessage(content=system_instruction),
+                    HumanMessage(content=f"请对以下地址进行地理编码: {location}")
+                ]
+
+                # 调用Qwen-Plus模型
+                response = chat_model(messages)
+
+                # 使用langchain的JsonOutputParser解析响应
+                parsed_response = json_parser.parse(response.content)
+
+                if "longitude" in parsed_response and "latitude" in parsed_response:
+                    results.append({
+                        "name": location,
+                        "lng": parsed_response["longitude"],
+                        "lat": parsed_response["latitude"],
+                        "desc": f"Geocoded location: {location}"
+                    })
+                else:
+                    raise ValueError("Unexpected response format.")
+            except Exception as e:
+                log.error(f"Geocoding failed for {location}: {str(e)}")
+                results.append({"name": location, "lng": "", "lat": "", "desc": "Geocoding failed"})
+    log.info(f"生成地址地理编码: {results}")
+    return results
+
+
 # New geocoding functions
 async def geocode_amap(locations: List[str]) -> List[Dict[str, str]]:
     """Get coordinates for international locations using AMap"""
@@ -125,6 +171,7 @@ async def geocode_amap(locations: List[str]) -> List[Dict[str, str]]:
             except Exception as e:
                 log.error(f"AMap geocoding failed for {location}: {str(e)}")
                 results.append({"name": location, "lng": "", "lat": "", "desc": "Geocoding failed"})
+    log.info(f"生成地址地理编码: {results}")
     return results
 
 
@@ -147,97 +194,6 @@ async def geocode_tmap(locations: List[str]) -> List[Dict[str, str]]:
             except Exception as e:
                 log.error(f"TMap geocoding failed for {location}: {str(e)}")
                 results.append({"name": location, "lng": "", "lat": "", "desc": "Geocoding failed"})
-    return results
-
-
-# Weather functions
-async def get_weather_amap(locations: List[str]) -> List[Dict[str, str]]:
-    """Get weather for international locations using AMap"""
-    results = []
-    async with httpx.AsyncClient() as client:
-        for location in locations:
-            try:
-                # First geocode to get city code
-                geocode_url = f"https://restapi.amap.com/v3/geocode/geo?key={AMAP_KEY}&address={location}"
-                geocode_resp = await client.get(geocode_url)
-                geocode_data = geocode_resp.json()
-
-                if geocode_data["status"] == "1" and geocode_data["geocodes"]:
-                    city_code = geocode_data["geocodes"][0].get("citycode", "")
-                    if city_code:
-                        weather_url = f"https://restapi.amap.com/v3/weather/weatherInfo?key={AMAP_KEY}&city={city_code}"
-                        weather_resp = await client.get(weather_url)
-                        weather_data = weather_resp.json()
-                        if weather_data["status"] == "1" and weather_data["lives"]:
-                            weather = weather_data["lives"][0]
-                            results.append({
-                                "location": location,
-                                "weather": weather["weather"],
-                                "temperature": weather["temperature"],
-                                "wind": f"{weather['winddirection']} {weather['windpower']}级",
-                                "humidity": weather["humidity"]
-                            })
-            except Exception as e:
-                log.error(f"AMap weather failed for {location}: {str(e)}")
-                results.append({"location": location, "error": "Weather data unavailable"})
-    return results
-
-
-async def get_weather_tmap(locations: List[str]) -> List[Dict[str, str]]:
-    """Get weather for domestic locations using TMap"""
-    results = []
-    async with httpx.AsyncClient() as client:
-        for location in locations:
-            try:
-                # First geocode to get coordinates
-                geocode_url = f"https://api.tianditu.gov.cn/geocoder?ds={'{'}'key':'{TMAP_KEY}'{'}'}&addr={location}"
-                geocode_resp = await client.get(geocode_url)
-                geocode_data = geocode_resp.json()
-
-                if geocode_data["status"] == "0":
-                    lon = geocode_data["location"]["lon"]
-                    lat = geocode_data["location"]["lat"]
-                    weather_url = f"https://api.tianditu.gov.cn/weather?postStr={'{'}'lon':{lon},'lat':{lat},'type':'forecast'{'}'}&type='forecast'"
-                    weather_resp = await client.get(weather_url)
-                    weather_data = weather_resp.json()
-                    if weather_data.get("data"):
-                        weather = weather_data["data"][0]  # Get current weather
-                        results.append({
-                            "location": location,
-                            "weather": weather["weather"],
-                            "temperature": weather["temp"],
-                            "wind": weather["wind"],
-                            "humidity": weather["humidity"]
-                        })
-            except Exception as e:
-                log.error(f"TMap weather failed for {location}: {str(e)}")
-                results.append({"location": location, "error": "Weather data unavailable"})
-    return results
-
-
-# Exchange rate functions
-async def get_exchange_rate_amap(currency_pairs: List[str]) -> List[Dict[str, str]]:
-    """Get exchange rates using AMap (international)"""
-    results = []
-    async with httpx.AsyncClient() as client:
-        for pair in currency_pairs:
-            try:
-                # AMap doesn't directly provide exchange rates, so we'll use a placeholder
-                # In production, you'd integrate with a real forex API
-                base, target = pair.split("_")
-                url = f"https://restapi.amap.com/v3/assistant/exchange?key={AMAP_KEY}&base={base}&target={target}"
-                response = await client.get(url)
-                data = response.json()
-                if data["status"] == "1":
-                    results.append({
-                        "pair": pair,
-                        "rate": data["rate"],
-                        "update_time": data["update_time"]
-                    })
-                else:
-                    results.append({"pair": pair, "error": "Rate not available"})
-            except Exception as e:
-                log.error(f"AMap exchange rate failed for {pair}: {str(e)}")
-                results.append({"pair": pair, "error": "Service unavailable"})
+    log.info(f"生成地址地理编码: {results}")
     return results
 

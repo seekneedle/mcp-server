@@ -140,8 +140,7 @@ async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
                 results.append({
                     "name": location,
                     "lng": lon,
-                    "lat": lat,
-                    "desc": f"Geocoded: {location}" if lon else "Not found"
+                    "lat": lat
                 })
             else:
                 raise ValueError(f"{response.code}: {response.message}")
@@ -174,8 +173,7 @@ async def geocode_amap(locations: List[str]) -> List[Dict[str, str]]:
                     results.append({
                         "name": location,
                         "lng": geo["location"].split(",")[0],
-                        "lat": geo["location"].split(",")[1],
-                        "desc": f"Geocoded location: {location}"
+                        "lat": geo["location"].split(",")[1]
                     })
             except Exception as e:
                 log.error(f"AMap geocoding failed for {location}: {str(e)}")
@@ -197,8 +195,7 @@ async def geocode_tmap(locations: List[str]) -> List[Dict[str, str]]:
                     results.append({
                         "name": location,
                         "lng": data["location"]["lon"],
-                        "lat": data["location"]["lat"],
-                        "desc": f"Geocoded location: {location}"
+                        "lat": data["location"]["lat"]
                     })
             except Exception as e:
                 log.error(f"TMap geocoding failed for {location}: {str(e)}")

@@ -18,14 +18,14 @@ map_mcp = FastMCP(
 )
 
 
-@map_mcp.tool(name="按照国外旅行路径生成路书地图")
+@map_mcp.tool(name="按照国外途径点生成路书地图")
 async def generate_travel_itinerary(locations: List[Dict[str, str]]) -> str:
     """
-    按照国外旅行路径生成路书地图
+    按照国外途径点生成路书地图
 
     参数:
         locations: 地点信息列表，每个地点包含name(名称)、lng(经度)、lat(纬度)、desc(描述)
-           示例: [{"name": "巴黎", "lng": "2.3522", "lat": "48.8566", "desc": "法国首都"}]
+           示例: [{"name": "巴黎", "lng": "2.3522", "lat": "48.8566", "desc": "法国首都,..."}]
 
     返回:
         生成的HTML路书地图文件路径，失败时返回空字符串
@@ -42,14 +42,14 @@ async def generate_travel_itinerary(locations: List[Dict[str, str]]) -> str:
         log.error(f"生成国外旅行地图失败: {str(e)}, trace: {trace_info}")
         return ""
 
-@map_mcp.tool(name="按照国内旅行路径生成路书地图")
+@map_mcp.tool(name="按照国内途径点生成路书地图")
 async def generate_domestic_itinerary(locations: List[Dict[str, str]]) -> str:
     """
-    按照国内旅行路径生成路书地图
+    按照国内途径点生成路书地图
 
     参数:
         locations: 地点信息列表，每个地点包含name(名称)、lng(经度)、lat(纬度)、desc(描述)
-           示例: [{"name": "北京", "lng": "116.407", "lat": "39.904", "desc": "中国首都"}]
+           示例: [{"name": "北京", "lng": "116.407", "lat": "39.904", "desc": "中国首都,..."}]
 
     返回:
         生成的HTML路书地图文件路径，失败时返回空字符串
@@ -76,7 +76,7 @@ async def get_international_coordinates(locations: List[str]) -> List[Dict[str, 
 
     返回:
         包含每个地点经纬度信息的字典列表，格式:
-        [{"name": "巴黎", "lng": "2.3522", "lat": "48.8566", "desc": "Geocoded location: 巴黎"}]
+        [{"name": "巴黎", "lng": "2.3522", "lat": "48.8566"}]
     """
     try:
         if not locations:
@@ -99,7 +99,7 @@ async def get_domestic_coordinates(locations: List[str]) -> List[Dict[str, str]]
 
     返回:
         包含每个地点经纬度信息的字典列表，格式:
-        [{"name": "北京", "lng": "116.407", "lat": "39.904", "desc": "Geocoded location: 北京"}]
+        [{"name": "北京", "lng": "116.407", "lat": "39.904"}]
     """
     try:
         if not locations:

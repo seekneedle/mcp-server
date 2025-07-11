@@ -108,9 +108,8 @@ async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
     """使用百炼平台千问模型进行地理编码（使用平台原生JSON解析）"""
     system_prompt = """你是一个专业的地理编码服务，非常了解国外地理位置对应的坐标。请严格按以下规则处理：
 1. 只返回JSON格式：{"longitude": "经度", "latitude": "纬度"}
-2. 坐标使用GCJ-02坐标系
-3. 未知地址返回：{"longitude": "", "latitude": ""}
-4. 所有地名都是国外的。
+2. 未知地址返回：{"longitude": "", "latitude": ""}
+3. 所有地名都是国外的，不要返回国内坐标。
 
 请返回 {location} 的地理编码"""
 

@@ -16,6 +16,7 @@ FOREIGN_TEMPLATE = "res/html/amap.html"
 DOMESTIC_TEMPLATE = "res/html/tmap.html"
 OUTPUT_DIR = Path("/usr/share/nginx/html/static")
 BASE_URL = "http://8.152.213.191/static"
+WEATHER_KEY = decrypt(config["weather_key"])
 
 # 确保输出目录存在
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -95,7 +96,7 @@ async def create_tmap(locations: List[Dict[str, str]]) -> str:
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
-        log.info(f"生成国内旅行地图: {BASE_URL}/{filename}")
+        log.info(f"生成旅行地图: {BASE_URL}/{filename}")
         return f"{BASE_URL}/{filename}"
 
     except Exception as e:
@@ -203,3 +204,100 @@ async def geocode_tmap(locations: List[str]) -> List[Dict[str, str]]:
     log.info(f"生成地址地理编码: {results}")
     return results
 
+
+async def geocode_weather(locations: List[str]) -> List[Dict[str, str]]:
+    """Get coordinates for locations using OpenWeatherMap Geo API"""
+    results = []
+    async with httpx.AsyncClient() as client:
+        for location in locations:
+            try:
+                url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={WEATHER_KEY}"
+                response = await client.get(url)
+                data = response.json()
+
+                if data and isinstance(data, list) and len(data) > 0:
+                    first_result = data[0]
+                    # Extract preferred name (zh -> en -> default)
+                    local_names = first_result.get("local_names", {})
+                    display_name = (
+                            local_names.get("zh")
+                            or local_names.get("en")
+                            or first_result.get("name", location)
+                    )
+
+                    results.append({
+                        "name": display_name,
+                        "lng": first_result.get("lon", ""),
+                        "lat": first_result.get("lat", "")
+                    })
+                else:
+                    results.append({
+                        "name": location,
+                        "lng": "",
+                        "lat": ""
+                    })
+
+            except Exception as e:
+                trace_info = traceback.format_exc()
+                log.error(f"OpenWeatherMap geocoding failed for {location}: {str(e)}, {trace_info}")
+                results.append({
+                    "name": location,
+                    "lng": "",
+                    "lat": ""
+                })
+
+    log.info(f"Generated geocoding results: {results}")
+    return results
+
+
+async def get_weather_by_coordinates(lat: float, lon: float, date: str, tz: str = "+08:00",
+                                     units: str = "metric") -> Dict:
+    """
+    获取坐标点指定日期的天气信息
+
+    参数:
+        lat: 纬度
+        lon: 经度
+        date: 日期字符串 (YYYY-MM-DD)
+        tz: 时区偏移 (默认"+00:00")
+        units: 单位制 (默认"metric")
+
+    返回:
+        天气数据字典
+    """
+    try:
+        # Validate date format
+        datetime.strptime(date, "%Y-%m-%d")
+
+        # Validate timezone format
+        if not (tz.startswith(("+", "-")) and len(tz) == 6 and tz[3] == ":"):
+            raise ValueError("Invalid timezone format. Expected ±HH:MM")
+
+        # Validate units
+        if units not in ("metric", "imperial"):
+            raise ValueError("Invalid units. Expected 'metric' or 'imperial'")
+
+        weather_key = decrypt(config["weather_key"])
+        url = f"https://api.openweathermap.org/data/3.0/onecall/day_summary?lat={lat}&lon={lon}&date={date}&tz={tz}&units={units}&appid={weather_key}"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            weather_data = response.json()
+
+        log.info(f"Weather data retrieved for {lat},{lon} on {date}")
+        return weather_data
+
+    except httpx.HTTPStatusError as e:
+        error_msg = f"Weather API error: {e.response.status_code} - {e.response.text}"
+        log.error(error_msg)
+        raise Exception(error_msg)
+    except ValueError as e:
+        error_msg = f"Invalid input: {str(e)}"
+        log.error(error_msg)
+        raise Exception(error_msg)
+    except Exception as e:
+        trace_info = traceback.format_exc()
+        error_msg = f"Weather query failed: {str(e)}"
+        log.error(f"{error_msg}, trace: {trace_info}")
+        raise Exception(error_msg)

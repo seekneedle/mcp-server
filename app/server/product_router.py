@@ -1,7 +1,6 @@
 from fastmcp import FastMCP
-from typing import List, Dict
-from utils.geo import get_city_code, get_province_code, get_country_code
-from service.product_search import product_search
+from typing import List
+from service.product_search import search_by_destination, search_by_pass_through
 from service.product_detail import get_product_info
 from utils.log import log
 import traceback
@@ -17,78 +16,40 @@ product_mcp = FastMCP(
 )
 
 
-async def _search_product_nums(location_dict: Dict[str, str], search_type: str) -> List[str]:
-    """
-    根据地理信息查询产品编号的公共方法
-
-    Args:
-        location_dict: 包含地理信息的字典
-        search_type: 查询类型，'dest'或'pass'
-
-    Returns:
-        匹配的产品编号列表
-    """
-    # 参数校验
-    if not location_dict or not any(location_dict.values()):
-        return []
-
-    # 获取各级地理编码（空值自动处理）
-    country = location_dict.get("country", "")
-    province = location_dict.get("province", "")
-    city = location_dict.get("city", "")
-
-    # 根据查询类型构建参数前缀
-    prefix = "dest" if search_type == "dest" else "pass"
-
-    # 构建查询参数
-    search_args = [{
-        f"{prefix}CountryCode": get_country_code(country) if country else "",
-        f"{prefix}ProvinceCode": get_province_code(province) if province else "",
-        f"{prefix}CityCode": get_city_code(city) if city else ""
-    }]
-
-    log.info(f"Search args: {search_args}")
-
-    try:
-        # 调用产品搜索服务
-        results = await product_search(search_args)
-
-        log.info(f"Search results: {results}")
-        
-        # 提取产品编号
-        return [item["productNum"] for item in results if item.get("productNum")]
-    except Exception as e:
-        trace_info = traceback.format_exc()
-        log.error(f"产品查询失败: {str(e)}, trace info: {trace_info}")
-        return []
-
-
 @product_mcp.tool(name="使用目的地查询旅行产品的产品编号")
-async def search_dest_product_nums(location_dict: Dict[str, str]) -> List[str]:
+async def search_dest_product_nums(country: str = "", province: str = "", city: str = "") -> List[str]:
     """
     根据目的地查询产品编号
 
+    注意：至少需要提供国家、省份或城市中的一个参数
+
     Args:
-        location_dict: 包含地理信息的字典， 包含三个key：country， province， city
+        country: 国家名称 (可选)
+        province: 省份名称 (可选)
+        city: 城市名称 (可选)
 
     Returns:
         匹配的产品编号列表
     """
-    return await _search_product_nums(location_dict, "dest")
+    return await search_by_destination(country, province, city)
 
 
 @product_mcp.tool(name="使用途经地查询旅行产品的产品编号")
-async def search_pass_product_nums(location_dict: Dict[str, str]) -> List[str]:
+async def search_pass_product_nums(country: str = "", province: str = "", city: str = "") -> List[str]:
     """
     根据途经地查询产品编号
 
+    注意：至少需要提供国家、省份或城市中的一个参数
+
     Args:
-        location_dict: 包含地理信息的字典， 包含三个key：country， province， city
+        country: 国家名称 (可选)
+        province: 省份名称 (可选)
+        city: 城市名称 (可选)
 
     Returns:
         匹配的产品编号列表
     """
-    return await _search_product_nums(location_dict, "pass")
+    return await search_by_pass_through(country, province, city)
 
 
 @product_mcp.tool(name="获取产品的旅行信息")

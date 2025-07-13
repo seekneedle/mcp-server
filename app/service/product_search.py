@@ -3,6 +3,7 @@ import aiohttp
 from utils.config import config
 from utils.log import log
 from urllib.parse import urlencode
+from utils.geo import get_city_code, get_province_code, get_country_code
 import asyncio
 
 
@@ -93,3 +94,65 @@ async def product_search(search_args: List[Dict]) -> List[Dict]:
         all_results.extend(res)
     
     return all_results
+
+
+async def search_by_destination(country: str = "", province: str = "", city: str = "") -> List[str]:
+    """
+    根据目的地查询产品编号
+
+    Args:
+        country: 国家名称 (可选)
+        province: 省份名称 (可选)
+        city: 城市名称 (可选)
+
+    Returns:
+        匹配的产品编号列表
+    """
+    # 参数校验 - 至少需要一个有效的地理信息
+    if not any([country, province, city]):
+        return []
+
+    # 构建查询参数
+    search_args = [{
+        "destCountryCode": get_country_code(country) if country else "",
+        "destProvinceCode": get_province_code(province) if province else "",
+        "destCityCode": get_city_code(city) if city else ""
+    }]
+
+    try:
+        results = await product_search(search_args)
+        return [item["productNum"] for item in results if item.get("productNum")]
+    except Exception as e:
+        log.error(f"目的地产品查询失败: {str(e)}")
+        return []
+
+
+async def search_by_pass_through(country: str = "", province: str = "", city: str = "") -> List[str]:
+    """
+    根据途经地查询产品编号
+
+    Args:
+        country: 国家名称 (可选)
+        province: 省份名称 (可选)
+        city: 城市名称 (可选)
+
+    Returns:
+        匹配的产品编号列表
+    """
+    # 参数校验 - 至少需要一个有效的地理信息
+    if not any([country, province, city]):
+        return []
+
+    # 构建查询参数
+    search_args = [{
+        "passCountryCode": get_country_code(country) if country else "",
+        "passProvinceCode": get_province_code(province) if province else "",
+        "passCityCode": get_city_code(city) if city else ""
+    }]
+
+    try:
+        results = await product_search(search_args)
+        return [item["productNum"] for item in results if item.get("productNum")]
+    except Exception as e:
+        log.error(f"途经地产品查询失败: {str(e)}")
+        return []

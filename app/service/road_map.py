@@ -40,7 +40,7 @@ async def create_amap(locations: List[Dict[str, str]]) -> str:
         for i, loc in enumerate(locations):
             cities.append({
                 "name": loc.get("name", f"地点{i + 1}"),
-                "position": [float(loc["lng"]), float(loc["lat"])],
+                "position": [str(loc["lng"]), str(loc["lat"])],
                 "color": COLORS[i % len(COLORS)],
                 "desc": loc.get("desc", "")
             })
@@ -76,8 +76,8 @@ async def create_tmap(locations: List[Dict[str, str]]) -> str:
         points = []
         for i, loc in enumerate(locations):
             points.append({
-                "lng": float(loc["lng"]),
-                "lat": float(loc["lat"]),
+                "lng": str(loc["lng"]),
+                "lat": str(loc["lat"]),
                 "index": f"第{i + 1}天{loc.get('name', f'地点{i + 1}')}"
                 })
 
@@ -227,8 +227,8 @@ async def geocode_weather(locations: List[str]) -> List[Dict[str, str]]:
 
                     results.append({
                         "name": display_name,
-                        "lng": first_result.get("lon", ""),
-                        "lat": first_result.get("lat", "")
+                        "lng": str(first_result.get("lon", "")),
+                        "lat": str(first_result.get("lat", ""))
                     })
                 else:
                     results.append({
@@ -250,7 +250,7 @@ async def geocode_weather(locations: List[str]) -> List[Dict[str, str]]:
     return results
 
 
-async def get_weather_by_coordinates(lat: float, lon: float, date: str, tz: str = "+08:00",
+async def get_weather_by_coordinate(lat: str, lon: str, date: str, tz: str = "+08:00",
                                      units: str = "metric") -> Dict:
     """
     获取坐标点指定日期的天气信息
@@ -301,3 +301,56 @@ async def get_weather_by_coordinates(lat: float, lon: float, date: str, tz: str 
         error_msg = f"Weather query failed: {str(e)}"
         log.error(f"{error_msg}, trace: {trace_info}")
         raise Exception(error_msg)
+
+
+async def get_weather(coordinates: List[Dict[str, str]]) -> List[Dict]:
+    """
+    获取多个坐标点的天气信息
+
+    参数:
+        coordinates: 坐标点信息列表，每个坐标点包含:
+            - lat: 纬度
+            - lon: 经度
+            - date: 日期(格式可以是YYYY-MM-DD、MM-DD或DD)
+
+    返回:
+        天气信息列表，每个元素对应一个坐标点的天气数据
+    """
+    results = []
+    current_date = datetime.now()
+
+    for coord in coordinates:
+        try:
+            lat = coord["lat"]
+            lon = coord["lon"]
+            date_str = coord["date"]
+            tz = "+08:00"  # 默认时区
+            units = "metric"  # 默认单位制
+
+            # 自动补全年月
+            date_parts = date_str.split("-")
+            if len(date_parts) == 1:  # 只有日 (如 "15")
+                formatted_date = f"{current_date.year}-{current_date.month:02d}-{int(date_parts[0]):02d}"
+            elif len(date_parts) == 2:  # 有月日 (如 "07-15")
+                formatted_date = f"{current_date.year}-{int(date_parts[0]):02d}-{int(date_parts[1]):02d}"
+            else:  # 完整日期 (如 "2025-07-15")
+                formatted_date = date_str
+
+            # 获取天气数据
+            weather_data = await get_weather_by_coordinate(lat, lon, formatted_date, tz, units)
+
+            results.append(weather_data)
+
+        except Exception as e:
+            trace_info = traceback.format_exc()
+            error_msg = f"Weather query failed for {coord}: {str(e)}"
+            log.error(f"{error_msg}, trace: {trace_info}")
+            results.append({
+                "lat": coord.get("lat", ""),
+                "lon": coord.get("lon", ""),
+                "date": coord.get("date", ""),
+                "error": error_msg
+            })
+
+    return results
+

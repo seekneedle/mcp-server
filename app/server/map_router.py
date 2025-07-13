@@ -17,10 +17,10 @@ map_mcp = FastMCP(
 )
 
 
-@map_mcp.tool(name="按照途径点生成路书地图")
+@map_mcp.tool(name="按照途经点生成路书地图")
 async def generate_itinerary(locations: List[Dict[str, str]]) -> str:
     """
-    按照途径点生成路书地图
+    按照途经点生成路书地图
 
     参数:
         locations: 地点信息列表，每个地点包含name(名称，优先使用中文)、lng(经度)、lat(纬度)

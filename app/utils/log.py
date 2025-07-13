@@ -18,6 +18,8 @@ class LogEntry(TableModel):
 class DatabaseLogHandler(logging.Handler):
     def emit(self, record):
         message = self.format(record)
+
+        message = ''.join(c for c in message if ord(c) <= 0xFFFF)
         
         if len(message) > 1000:
             ellipsis = " [...] "

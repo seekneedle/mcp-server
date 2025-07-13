@@ -24,9 +24,9 @@ async def search_dest_product_nums(country: str = "", province: str = "", city: 
     注意：至少需要提供国家、省份或城市中的一个参数
 
     Args:
-        country: 国家名称 (可选)
-        province: 省份名称 (可选)
-        city: 城市名称 (可选)
+        country: 国家名称 (可选)， 最多只允许有一个国家
+        province: 省份名称 (可选)， 最多只允许有一个省份
+        city: 城市名称 (可选)， 最多只允许有一个城市
 
     Returns:
         匹配的产品编号列表
@@ -42,9 +42,9 @@ async def search_pass_product_nums(country: str = "", province: str = "", city: 
     注意：至少需要提供国家、省份或城市中的一个参数
 
     Args:
-        country: 国家名称 (可选)
-        province: 省份名称 (可选)
-        city: 城市名称 (可选)
+        country: 国家名称 (可选)， 最多只允许有一个国家
+        province: 省份名称 (可选)， 最多只允许有一个省份
+        city: 城市名称 (可选)， 最多只允许有一个城市
 
     Returns:
         匹配的产品编号列表

@@ -106,7 +106,7 @@ async def search_by_destination(country: str = "", province: str = "", city: str
         city: 城市名称 (可选)
 
     Returns:
-        匹配的产品编号列表
+        匹配的产品编号列表（已去重）
     """
     # 参数校验 - 至少需要一个有效的地理信息
     if not any([country, province, city]):
@@ -121,7 +121,14 @@ async def search_by_destination(country: str = "", province: str = "", city: str
 
     try:
         results = await product_search(search_args)
-        return [item["productNum"] for item in results if item.get("productNum")]
+        # 使用字典来去重，保持顺序
+        unique_products = {}
+        for item in results:
+            if item.get("productNum"):
+                product_num = item["productNum"]
+                if product_num not in unique_products:
+                    unique_products[product_num] = True
+        return list(unique_products.keys())
     except Exception as e:
         log.error(f"目的地产品查询失败: {str(e)}")
         return []
@@ -137,7 +144,7 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
         city: 城市名称 (可选)
 
     Returns:
-        匹配的产品编号列表
+        匹配的产品编号列表（已去重）
     """
     # 参数校验 - 至少需要一个有效的地理信息
     if not any([country, province, city]):
@@ -152,7 +159,14 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
 
     try:
         results = await product_search(search_args)
-        return [item["productNum"] for item in results if item.get("productNum")]
+        # 使用字典来去重，保持顺序
+        unique_products = {}
+        for item in results:
+            if item.get("productNum"):
+                product_num = item["productNum"]
+                if product_num not in unique_products:
+                    unique_products[product_num] = True
+        return list(unique_products.keys())
     except Exception as e:
         log.error(f"途经地产品查询失败: {str(e)}")
         return []

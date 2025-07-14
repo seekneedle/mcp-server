@@ -130,8 +130,8 @@ async def parse_product_info(product_infos, demand) -> str:
     请根据以下用户需求从产品信息中筛选相关内容：
     用户需求：{demand}
 
-    筛选要求：
-    景点描述必须完全保持原文，一个字都不要改
+    限制：
+    必须返回原文，不允许修改或总结
 
     产品信息：
     {results}

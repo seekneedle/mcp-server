@@ -55,7 +55,7 @@ async def search_pass_product_nums(country: str = "", province: str = "", city: 
 @product_mcp.tool(name="获取产品的旅行信息")
 async def get_product_infos(product_nums: List[str], demand: str) -> List[str]:
     """
-    根据产品编号列表检索产品的旅行信息，返回旅行信息
+    根据产品编号列表检索产品的旅行信息，返回旅行信息，如往返机票，景点，酒店，购物，交通信息
 
     Args:
         product_nums: 产品编号列表 (如 ["U1001", "U1002"])

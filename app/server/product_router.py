@@ -71,19 +71,40 @@ async def get_product_infos(product_nums: List[str], demand: str) -> str:
 
     return trip_info
 
-@product_mcp.tool(name="根据产品编号和城市列表检索景点信息")
-async def get_scenic_spots_by_cities(product_nums: List[str], cities: List[str]) -> str:
+
+@product_mcp.tool(name="根据产品编号和地理位置检索景点信息")
+async def get_scenic_spots_by_location(
+        product_nums: List[str],
+        country: str = "",
+        cities: List[str] = None
+) -> str:
     """
-    根据产品编号和城市列表检索景点信息
+    根据产品编号和地理位置检索景点信息
 
     Args:
         product_nums: 产品编号列表 (如 ["U1001", "U1002"])
-        cities: 城市名称列表 (如 ["巴黎", "伦敦"])
+        country: 国家名称 (可选)
+        cities: 城市名称列表 (可选)
 
     Returns:
-        返回格式为"景点名称-所属城市-产品编号"的字符串列表
+        返回格式为"景点名称-所属城市-所属国家-产品编号"的字符串列表
+
+    查询逻辑:
+        1. 如果提供了国家和城市列表: 返回该国指定城市的景点
+        2. 如果仅提供国家: 返回该国家所有城市的景点
+        3. 如果仅提供城市列表: 返回这些城市(不限国家)的景点
+        4. 如果都未提供: 返回所有景点
     """
-    demand = f"请提取以下城市的景点信息：{', '.join(cities)}，返回格式为'景点名称-所属城市-产品编号'"
+    # 构建查询需求描述
+    if country and cities:
+        demand = f"请提取{country}的以下城市景点：{', '.join(cities)}，返回格式为'景点名称-所属城市-所属国家-产品编号'"
+    elif country:
+        demand = f"请提取{country}所有城市的景点信息，返回格式为'景点名称-所属城市-所属国家-产品编号'"
+    elif cities:
+        demand = f"请提取以下城市的景点(不限国家)：{', '.join(cities)}，返回格式为'景点名称-所属城市-所属国家-产品编号'"
+    else:
+        demand = "请提取所有景点信息，返回格式为'景点名称-所属城市-所属国家-产品编号'"
+
     return await get_product_infos(product_nums, demand)
 
 

@@ -106,7 +106,7 @@ async def search_by_destination(country: str = "", province: str = "", city: str
         city: 城市名称 (可选)
 
     Returns:
-        匹配的产品编号列表
+        匹配的产品编号列表（仅包含lineList[0]有行程的产品）
     """
     # 参数校验 - 至少需要一个有效的地理信息
     if not any([country, province, city]):
@@ -121,7 +121,22 @@ async def search_by_destination(country: str = "", province: str = "", city: str
 
     try:
         results = await product_search(search_args)
-        return [item["productNum"] for item in results if item.get("productNum")]
+        valid_products = []
+        for item in results:
+            if not item.get("productNum"):
+                continue
+
+            # Check if lineList exists and has trips
+            line_list = item.get("lineList", [])
+            if not line_list:
+                continue
+
+            first_line = line_list[0]
+            trips = first_line.get("trips", [])
+            if trips:  # Only include products with non-empty trips
+                valid_products.append(item["productNum"])
+
+        return valid_products
     except Exception as e:
         log.error(f"目的地产品查询失败: {str(e)}")
         return []
@@ -137,7 +152,7 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
         city: 城市名称 (可选)
 
     Returns:
-        匹配的产品编号列表
+        匹配的产品编号列表（仅包含lineList[0]有行程的产品）
     """
     # 参数校验 - 至少需要一个有效的地理信息
     if not any([country, province, city]):
@@ -152,7 +167,22 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
 
     try:
         results = await product_search(search_args)
-        return [item["productNum"] for item in results if item.get("productNum")]
+        valid_products = []
+        for item in results:
+            if not item.get("productNum"):
+                continue
+
+            # Check if lineList exists and has trips
+            line_list = item.get("lineList", [])
+            if not line_list:
+                continue
+
+            first_line = line_list[0]
+            trips = first_line.get("trips", [])
+            if trips:  # Only include products with non-empty trips
+                valid_products.append(item["productNum"])
+
+        return valid_products
     except Exception as e:
         log.error(f"途经地产品查询失败: {str(e)}")
         return []

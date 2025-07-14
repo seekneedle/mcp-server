@@ -6,6 +6,7 @@ import traceback
 from service.product_feature_search import get_feature_desc
 from dashscope.aigc.generation import AioGeneration
 from utils.security import decrypt
+from typing import List
 
 api_key = decrypt(config['api_key'])
 
@@ -42,108 +43,81 @@ async def get_product_info(product_num: str) -> dict:
     return {}  # 失败时返回空字典
 
 
-async def parse_product_info(product_infos, demand) -> str:
-    results = []
+async def parse_product_info(product_infos: List[dict], demand: str) -> str:
+    """
+    使用大模型根据需求从产品信息中提取特定内容
+
+    Args:
+        product_infos: 产品信息列表
+        demand: 提取需求描述
+
+    Returns:
+        根据需求提取的信息
+    """
+    # 首先收集所有产品的基本信息文本
+    product_texts = []
 
     for product_info in product_infos:
         if not product_info:
             continue
 
         product_num = product_info.get('productNum', '未知编号')
-        try:
-            # Get only the first line if exists
-            line_list = product_info.get("lineList", [])
-            if not line_list:
-                continue
+        product_text = f"【产品编号: {product_num}】\n"
 
-            line = line_list[0]  # Only use the first line
-            log.info(f"产品 {product_num} 线路信息: {line}")
+        line_list = product_info.get("lineList", [])
+        for line in line_list:
+            # 交通信息
+            traffic_info = line.get('goTransportName', '') + " " + line.get('backTransportName', '')
+            if traffic_info.strip():
+                product_text += f"交通: {traffic_info}\n"
 
-            # Collect all information for this product
-            product_details = []
-            product_details.append(f"【产品信息】\n产品编号：{product_num}")
+            # 航班信息
+            for flight_type in ['goAirports', 'backAirports']:
+                flights = line.get(flight_type, [])
+                for flight in flights:
+                    product_text += f"航班: {flight.get('airlineName', '')} {flight.get('flightNo', '')} " \
+                                    f"{flight.get('startAirportName', '')}->{flight.get('arriveAirportName', '')}\n"
 
-            # Process transportation info
-            traffic_infos = []
-            traffic_infos.append("【交通信息】")
-            traffic_infos.append(get_feature_desc(line, "去程交通", 'goTransportName'))
-            traffic_infos.append(get_feature_desc(line,
-                                                  "去程航班（包括航空公司编码、航空公司名称、航班号、启程机场编码、去程机场名称、启程出发时间、到达机场编码、到达机场名称、到达时间、日期差、航班顺序）",
-                                                  'goAirports',
-                                                  ["airlineCode", "airlineName", "flightNo", "startAirportCode",
-                                                   "startAirportName", "startTime", "arriveAirportCode",
-                                                   "arriveAirportName", "arriveTime", "days", "flightSort"]))
-            traffic_infos.append(get_feature_desc(line, "回程交通", 'backTransportName'))
-            traffic_infos.append(get_feature_desc(line,
-                                                  "回程航班（包括航空公司编码、航空公司名称、航班号、回程机场编码、回程机场名称、回程出发时间、到达机场编码、到达机场名称、到达时间、日期差、航班顺序）",
-                                                  'backAirports',
-                                                  ["airlineCode", "airlineName", "flightNo", "startAirportCode",
-                                                   "startAirportName", "startTime", "arriveAirportCode",
-                                                   "arriveAirportName", "arriveTime", "days", "flightSort"]))
+            # 每日行程
+            for trip in line.get("trips", []):
+                product_text += f"\n第{trip.get('dayNum', '')}天: {trip.get('content', '')}\n"
 
-            product_details.extend([info for info in traffic_infos if info])
+                # 景点
+                for spot in trip.get('scenicSpots', []):
+                    product_text += f"景点: {spot.get('name', '')} ({spot.get('city', '未知城市')}) - {spot.get('description', '')}\n"
 
-            # Process daily trips from the first line only
-            try:
-                for trip in line.get("trips", []):
-                    trip_infos = []
-                    trip_infos.append(f"\n【第{trip.get('dayNum', '')}天行程】")
+                # 酒店
+                for hotel in trip.get('hotels', []):
+                    product_text += f"酒店: {hotel.get('name', '')} ({hotel.get('star', '')}星) - {hotel.get('address', '')}\n"
 
-                    # 景点信息 - 保持原样输出
-                    scenic_spots = trip.get('scenicSpots', [])
-                    if scenic_spots:
-                        trip_infos.append("【景点信息】")
-                        for spot in scenic_spots:
-                            name = spot.get('name', '未知景点')
-                            description = spot.get('description', '暂无描述')
-                            trip_infos.append(f"{name}：{description}")
+                # 购物
+                for store in trip.get('stores', []):
+                    product_text += f"购物: {store.get('name', '')} - {store.get('mainProducts', '')}\n"
 
-                    # 其他行程信息
-                    trip_infos.append(get_feature_desc(trip, "行程内容描述", 'content'))
-                    trip_infos.append(get_feature_desc(trip,
-                                                       "当天交通信息（出发地、出发时间、目的地、到达时间、交通类型）",
-                                                       'scheduleTraffics',
-                                                       ["departure", "departureTime", "destination", "arrivalTime",
-                                                        "trafficType"]))
-                    trip_infos.append(
-                        get_feature_desc(trip, "酒店信息", 'hotels', ["name", "star"]))
-                    trip_infos.append(get_feature_desc(trip, "特色商店", 'stores',
-                                                       ["name", "mainProducts", "description"]))
+        product_texts.append(product_text)
 
-                    product_details.extend([info for info in trip_infos if info])
-
-            except Exception as e:
-                trace_info = traceback.format_exc()
-                log.error(f"产品 {product_num} 行程提取失败: {str(e)}, trace: {trace_info}")
-
-            # Combine all product info
-            product_info_text = "\n".join(product_details)
-            results.append(product_info_text)
-            log.info(f"产品 {product_num} 处理结果: {product_info_text}")
-
-        except Exception as e:
-            trace_info = traceback.format_exc()
-            log.error(f"产品 {product_num} 信息提取失败: {str(e)}, trace: {trace_info}")
-
-    # Prepare the prompt for LLM to filter according to demand
+    # 准备给大模型的提示
+    full_text = "\n\n".join(product_texts)
     prompt = f"""
-    请根据以下用户需求从产品信息中筛选相关内容：
+    请根据以下用户需求从产品信息中提取相关内容：
     用户需求：{demand}
 
-    限制：
-    必须返回原文，不允许修改或总结
-
     产品信息：
-    {results}
+    {full_text}
+
+    要求：
+    1. 只返回与需求直接相关的信息
+    2. 保持信息的原始内容，不要修改或总结
+    3. 请注明产品编号
     """
 
+    # 调用大模型处理
     response = await AioGeneration.call(
-        model='qwen-max',
+        model='qwen-plus',
         prompt=prompt,
         result_format='message',
         temperature=0,
         api_key=api_key
     )
 
-    processed_result = response['output']['choices'][0]['message']['content']
-    return processed_result
+    return response['output']['choices'][0]['message']['content']

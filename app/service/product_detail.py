@@ -151,6 +151,8 @@ async def parse_product_info(product_infos: List[dict], demand: str) -> str:
     {full_text}
     """
 
+    log.info(prompt)
+
     try:
         response = await AioGeneration.call(
             model='qwen-plus',
@@ -159,7 +161,9 @@ async def parse_product_info(product_infos: List[dict], demand: str) -> str:
             temperature=0,
             api_key=api_key
         )
-        return response['output']['choices'][0]['message']['content']
+        parse_result = response['output']['choices'][0]['message']['content']
+        log.info(f"解析结果： {parse_result}")
+        return parse_result
     except Exception as e:
         trace_info = traceback.format_exc()
         log.error(f"大模型处理失败: {str(e)}, trace: {trace_info}")

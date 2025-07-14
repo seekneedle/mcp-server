@@ -53,23 +53,21 @@ async def search_pass_product_nums(country: str = "", province: str = "", city: 
 
 
 @product_mcp.tool(name="获取产品的旅行信息")
-async def get_product_infos(product_nums: List[str], demand: str) -> List[str]:
+async def get_product_infos(product_nums: List[str], demand: str) -> str:
     """
-    根据产品编号列表检索产品的旅行信息，返回旅行信息，如往返机票，景点，酒店，购物，交通信息
+    根据产品编号列表和具体出行需求检索产品的旅行信息，返回旅行信息，如往返机票，景点，酒店，购物，交通信息
 
     Args:
         product_nums: 产品编号列表 (如 ["U1001", "U1002"])
-        demand: 需要检索产品中的哪些内容
+        demand: 出行需求和根据出行需求需要检索产品中的哪些内容（比如根据出行目的地，想看的景点等）
 
     Returns:
-        旅行信息列表
-        示例: ["...", ...]
-        没有旅行信息时返回空列表
+        按照用户需求获取的旅行信息
     """
     # 并发获取所有产品信息
     product_infos = await asyncio.gather(*[get_product_info(num) for num in product_nums])
 
-    trip_list = await parse_product_info(product_infos, demand)
+    trip_info = await parse_product_info(product_infos, demand)
 
-    return trip_list
+    return trip_info
 

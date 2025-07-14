@@ -42,32 +42,8 @@ async def get_product_info(product_num: str) -> dict:
     return {}  # 失败时返回空字典
 
 
-async def parse_product_info(product_infos, demand):
+async def parse_product_info(product_infos, demand) -> str:
     results = []
-
-    # Enhanced system prompt for information extraction
-    extraction_prompt_template = """
-    请严格按照以下要求提取和整理旅行产品信息（产品编号：{product_num}）：
-
-    1. 信息提取要求：
-    - 必须包含产品编号：{product_num}
-    - 景点介绍、购物店介绍必须一字不差地原样保留
-    - 交通信息需要完整提取（包括航班号、时间、机场等所有细节）
-    - 酒店信息需要包含名称和星级
-    - 每天的行程安排需要清晰呈现
-
-    2. 格式要求：
-    - 对于缺失但重要的信息，请根据上下文合理补充并标注[补充]
-    - 保持原始数据的准确性，不要修改原始描述
-    - 使用清晰的标题分隔不同部分（如【产品信息】、【交通信息】、【每日行程】等）
-
-    3. 特别注意事项：
-    - 如果原始数据中有明显遗漏但根据行程逻辑应该存在的信息，请添加[注意：可能需要补充XX信息]
-    - 购物店信息必须包含名称、特色产品和完整介绍
-    - 景点描述必须完全保留原始文本
-
-    请整理以下产品信息：
-    """
 
     for product_info in product_infos:
         if not product_info:
@@ -111,7 +87,18 @@ async def parse_product_info(product_infos, demand):
             try:
                 for trip in line.get("trips", []):
                     trip_infos = []
-                    trip_infos.append("【每日行程】")
+                    trip_infos.append(f"\n【第{trip.get('dayNum', '')}天行程】")
+
+                    # 景点信息 - 保持原样输出
+                    scenic_spots = trip.get('scenicSpots', [])
+                    if scenic_spots:
+                        trip_infos.append("【景点信息】")
+                        for spot in scenic_spots:
+                            name = spot.get('name', '未知景点')
+                            description = spot.get('description', '暂无描述')
+                            trip_infos.append(f"{name}：{description}")
+
+                    # 其他行程信息
                     trip_infos.append(get_feature_desc(trip, "行程内容描述", 'content'))
                     trip_infos.append(get_feature_desc(trip,
                                                        "当天交通信息（出发地、出发时间、目的地、到达时间、交通类型）",
@@ -129,24 +116,34 @@ async def parse_product_info(product_infos, demand):
                 trace_info = traceback.format_exc()
                 log.error(f"产品 {product_num} 行程提取失败: {str(e)}, trace: {trace_info}")
 
-            # Process all product info with a single LLM call
+            # Combine all product info
             product_info_text = "\n".join(product_details)
-            prompt = extraction_prompt_template.format(product_num=product_num) + product_info_text
-
-            response = await AioGeneration.call(
-                model='qwen-max',
-                prompt=prompt,
-                result_format='message',
-                temperature=0,
-                api_key=api_key
-            )
-
-            processed_result = response['output']['choices'][0]['message']['content']
-            results.append(processed_result)
-            log.info(f"产品 {product_num} 处理结果: {processed_result}")
+            results.append(product_info_text)
+            log.info(f"产品 {product_num} 处理结果: {product_info_text}")
 
         except Exception as e:
             trace_info = traceback.format_exc()
             log.error(f"产品 {product_num} 信息提取失败: {str(e)}, trace: {trace_info}")
 
-    return results
+    # Prepare the prompt for LLM to filter according to demand
+    prompt = f"""
+    请根据以下用户需求从产品信息中筛选相关内容：
+    用户需求：{demand}
+
+    筛选要求：
+    景点描述必须完全保持原文，一个字都不要改
+
+    产品信息：
+    {results}
+    """
+
+    response = await AioGeneration.call(
+        model='qwen-max',
+        prompt=prompt,
+        result_format='message',
+        temperature=0,
+        api_key=api_key
+    )
+
+    processed_result = response['output']['choices'][0]['message']['content']
+    return processed_result

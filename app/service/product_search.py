@@ -108,16 +108,21 @@ async def search_by_destination(country: str = "", province: str = "", city: str
     Returns:
         匹配的产品编号列表（已去重）
     """
-    # 参数校验 - 至少需要一个有效的地理信息
-    if not any([country, province, city]):
+    # 构建查询参数
+    search_args = {}
+    if country and get_country_code(country):
+        search_args["destCountryCode"] = get_country_code(country)
+    if province and get_province_code(province):
+        search_args["destProvinceCode"] = get_province_code(province)
+    if city and get_city_code(city):
+        search_args["destCityCode"] = get_city_code(city)
+
+    # Return empty list if no valid codes were found
+    if not search_args:
         return []
 
-    # 构建查询参数
-    search_args = [{
-        "destCountryCode": get_country_code(country) if country else "",
-        "destProvinceCode": get_province_code(province) if province else "",
-        "destCityCode": get_city_code(city) if city else ""
-    }]
+    # Wrap in list to maintain original structure
+    search_args = [search_args]
 
     try:
         results = await product_search(search_args)
@@ -146,16 +151,21 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
     Returns:
         匹配的产品编号列表（已去重）
     """
-    # 参数校验 - 至少需要一个有效的地理信息
-    if not any([country, province, city]):
+    # 构建查询参数
+    search_args = {}
+    if country and get_country_code(country):
+        search_args["destCountryCode"] = get_country_code(country)
+    if province and get_province_code(province):
+        search_args["destProvinceCode"] = get_province_code(province)
+    if city and get_city_code(city):
+        search_args["destCityCode"] = get_city_code(city)
+
+    # Return empty list if no valid codes were found
+    if not search_args:
         return []
 
-    # 构建查询参数
-    search_args = [{
-        "passCountryCode": get_country_code(country) if country else "",
-        "passProvinceCode": get_province_code(province) if province else "",
-        "passCityCode": get_city_code(city) if city else ""
-    }]
+    # Wrap in list to maintain original structure
+    search_args = [search_args]
 
     try:
         results = await product_search(search_args)

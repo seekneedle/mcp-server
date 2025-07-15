@@ -168,11 +168,10 @@ async def search_by_destination(country: str = "", province: str = "", city: str
         current_page: 当前页码
 
     Returns:
-        JSON字符串格式: {
-            "current_page": 当前页码,
-            "total_pages": 总页数,
-            "message": 包含产品详细信息的消息
-        }
+        文字格式:
+        当前页：。。。
+        总页数：。。。
+        旅行产品信息：。。。
     """
     # 构建查询参数
     search_args = {}
@@ -184,11 +183,7 @@ async def search_by_destination(country: str = "", province: str = "", city: str
         search_args["destCityCode"] = get_city_code(city)
 
     if not search_args:
-        return json.dumps({
-            "current_page": 1,
-            "total_pages": 1,
-            "message": "至少需要提供国家、省份或城市中的一个参数"
-        })
+        return "当前页：1\n总页数：1\n旅行产品信息：至少需要提供国家、省份或城市中的一个参数"
 
     # 设置分页参数
     params = {
@@ -200,11 +195,7 @@ async def search_by_destination(country: str = "", province: str = "", city: str
     try:
         response = await fetch_product_page(params)
         if not response or 'data' not in response:
-            return json.dumps({
-                "current_page": current_page,
-                "total_pages": 1,
-                "message": "未获取到有效数据"
-            })
+            return f"当前页：{current_page}\n总页数：1\n旅行产品信息：未获取到有效数据"
 
         data = response['data']
         total_pages = data.get('pages', 1)
@@ -219,19 +210,11 @@ async def search_by_destination(country: str = "", province: str = "", city: str
 
         message = "查询成功\n" + "\n\n".join(product_features) if product_features else "没有找到产品详细信息"
 
-        return json.dumps({
-            "current_page": current_page,
-            "total_pages": total_pages,
-            "message": message
-        })
+        return f"当前页：{current_page}\n总页数：{total_pages}\n旅行产品信息：\n{message}"
 
     except Exception as e:
         log.error(f"目的地产品查询失败: {str(e)}")
-        return json.dumps({
-            "current_page": current_page,
-            "total_pages": 1,
-            "message": f"查询失败: {str(e)}"
-        })
+        return f"当前页：{current_page}\n总页数：1\n旅行产品信息：查询失败: {str(e)}"
 
 
 async def search_by_pass_through(country: str = "", province: str = "", city: str = "", current_page: int = 1) -> str:
@@ -245,11 +228,10 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
         current_page: 当前页码
 
     Returns:
-        JSON字符串格式: {
-            "current_page": 当前页码,
-            "total_pages": 总页数,
-            "message": 包含产品详细信息的消息
-        }
+        文字格式:
+        当前页：。。。
+        总页数：。。。
+        旅行产品信息：。。。
     """
     # 构建查询参数
     search_args = {}
@@ -261,11 +243,7 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
         search_args["passCityCode"] = get_city_code(city)
 
     if not search_args:
-        return json.dumps({
-            "current_page": 1,
-            "total_pages": 1,
-            "message": "至少需要提供国家、省份或城市中的一个参数"
-        })
+        return "当前页：1\n总页数：1\n旅行产品信息：至少需要提供国家、省份或城市中的一个参数"
 
     # 设置分页参数
     params = {
@@ -277,11 +255,7 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
     try:
         response = await fetch_product_page(params)
         if not response or 'data' not in response:
-            return json.dumps({
-                "current_page": current_page,
-                "total_pages": 1,
-                "message": "未获取到有效数据"
-            })
+            return f"当前页：{current_page}\n总页数：1\n旅行产品信息：未获取到有效数据"
 
         data = response['data']
         total_pages = data.get('pages', 1)
@@ -296,16 +270,8 @@ async def search_by_pass_through(country: str = "", province: str = "", city: st
 
         message = "查询成功\n" + "\n\n".join(product_features) if product_features else "没有找到产品详细信息"
 
-        return json.dumps({
-            "current_page": current_page,
-            "total_pages": total_pages,
-            "message": message
-        })
+        return f"当前页：{current_page}\n总页数：{total_pages}\n旅行产品信息：\n{message}"
 
     except Exception as e:
         log.error(f"途经地产品查询失败: {str(e)}")
-        return json.dumps({
-            "current_page": current_page,
-            "total_pages": 1,
-            "message": f"查询失败: {str(e)}"
-        })
+        return f"当前页：{current_page}\n总页数：1\n旅行产品信息：查询失败: {str(e)}"

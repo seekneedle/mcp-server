@@ -1,112 +1,178 @@
-from typing import List, Dict, Optional
-import aiohttp
+from typing import Dict, Optional
+import httpx
 from utils.config import config
 from utils.log import log
 from urllib.parse import urlencode
 from utils.geo import get_city_code, get_province_code, get_country_code
-import asyncio
+import json
+import traceback
 
 
-async def product_search(search_args: List[Dict]) -> List[Dict]:
-    """
-    批量查询并返回原始结果（自动处理分页），优先使用data.pages字段
+def get_feature_desc(product_detail, intro, parent_key, keys=None):
+    """获取产品特征描述"""
+    if not product_detail or not parent_key:
+        return ""
 
-    Args:
-        search_args: 查询参数列表，每个元素格式示例:
-            {
-                "destCountryCode": "CN",
-                "destProvinceCode": "GD",
-                "destCityCode": "GZ"
-            }
+    try:
+        values = []
 
-    Returns:
-        所有分页的原始结果合并后的列表
-    """
+        if keys is None:
+            key_list = parent_key.split(".")
+            current_dict = product_detail
+
+            for k in key_list[:-1]:
+                current_dict = current_dict.get(k)
+                if current_dict is None:
+                    return f"{intro}："
+
+            if current_dict is not None:
+                last_key = key_list[-1]
+                if isinstance(current_dict, list):
+                    for child_dict in current_dict:
+                        values.append(str(child_dict.get(last_key, "")))
+                else:
+                    value_str = str(current_dict.get(last_key, ""))
+                    values.append(value_str)
+
+        else:
+            key_list = parent_key.split(".")
+            current_dict = product_detail
+
+            for k in key_list:
+                current_dict = current_dict.get(k)
+                if current_dict is None:
+                    return f"{intro}："
+
+            if current_dict is not None:
+                if isinstance(current_dict, list):
+                    for child_dict in current_dict:
+                        child_values = []
+                        for key in keys:
+                            value = child_dict.get(key, "")
+                            if value is not None and str(value) != "null":
+                                update_value = str(value).replace("\n", " ")
+                                child_values.append(update_value)
+                        values.append("、".join(child_values))
+                elif isinstance(current_dict, dict):
+                    child_values = []
+                    for key in keys:
+                        value = current_dict.get(key, "")
+                        if value is not None and str(value) != "null":
+                            update_value = str(value).replace("\n", " ")
+                            child_values.append(update_value)
+                    values.append("、".join(child_values))
+
+        combined_value = "; ".join(values)
+        return f"{intro}：{combined_value}"
+
+    except Exception:
+        return f"{intro}："
+
+
+async def fetch_product_page(params: Dict) -> Optional[Dict]:
+    """获取单页数据"""
     base_url = config['uux_base_url']
-    all_results = []
+    url = f"{base_url}/page?{urlencode(params)}"
+    log.info(f"Fetching data from: {url}")
 
-    async def fetch_data(params: Dict) -> Optional[Dict]:
-        """获取单页数据，返回整个响应数据字典"""
-        url = f"{base_url}/page?{urlencode(params)}"
-        log.info(f"Fetching data from: {url}")
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
-                    resp.raise_for_status()
-                    return await resp.json()
-        except Exception as e:
-            log.error(f"查询失败: {str(e)}, params: {params}")
-            return None
-
-    async def process_search_args(args: Dict) -> List[Dict]:
-        """处理单个查询参数，获取所有分页数据"""
-        # 1. 获取第一页数据并确定总页数
-        first_page_params = {
-            "current": 1,
-            "pageSize": 10,
-            **args
-        }
-        
-        first_page_data = await fetch_data(first_page_params)
-        if not first_page_data or 'data' not in first_page_data:
-            log.error(f"获取第一页数据失败: {args}")
-            return []
-        
-        data = first_page_data['data']
-        
-        # 确定总页数
-        total_pages = data.get('pages', 1)
-        
-        # 提取第一页结果
-        results = []
-        records = data.get('records', [])
-        log.error(f"获取第1页数据: {records}")
-        results.extend(records)
-        
-        # 2. 准备剩余页的查询任务
-        tasks = []
-        for page in range(2, total_pages + 1):
-            task_params = {
-                "current": page,
-                "pageSize": 10,
-                **args
-            }
-            tasks.append(fetch_data(task_params))
-        
-        # 3. 并发获取剩余页数据
-        if tasks:
-            pages_data = await asyncio.gather(*tasks)
-            for page_data in pages_data:
-                if page_data and 'data' in page_data:
-                    page_records = data.get('records', [])
-                    log.error(f"获取第{data.get('current', 2)}页数据: {records}")
-                    results.extend(page_records)
-        
-        return results
-
-    # 并发处理所有查询条件
-    tasks = [process_search_args(args) for args in search_args]
-    results = await asyncio.gather(*tasks)
-    
-    # 合并所有结果
-    for res in results:
-        all_results.extend(res)
-    
-    return all_results
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as e:
+        log.error(f"查询失败: {str(e)}, params: {params}")
+        return None
 
 
-async def search_by_destination(country: str = "", province: str = "", city: str = "") -> List[str]:
+async def fetch_product_detail(product_num: str) -> Optional[Dict]:
+    """获取单个产品详细信息"""
+    base_url = config['uux_base_url']
+    url = f"{base_url}/productInfo?productNum={product_num}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+            return resp.json().get('data')
+    except Exception as e:
+        log.error(f"获取产品详情失败: {str(e)}, productNum: {product_num}")
+        return None
+
+
+async def get_product_features(product_num: str) -> str:
+    """获取单个产品的特征描述（仅包含行程信息和往返航班）"""
+    product_detail = await fetch_product_detail(product_num)
+    if not product_detail:
+        return f"产品 {product_num} 详情获取失败"
+
+    product_features = []
+
+    if "lineList" in product_detail and product_detail["lineList"]:
+        line = product_detail["lineList"][0]  # 只处理第一条线路
+
+        # 往返航班信息（严格保持原有获取方式）
+        product_features.append("=== 往返航班信息 ===")
+        product_features.append(get_feature_desc(line, "去程交通", 'goTransportName'))
+        product_features.append(get_feature_desc(line,
+                                                 "去程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",
+                                                 'goAirports', ["airlineName", "flightNo", "startAirportName",
+                                                                "arriveAirportName", "startTime", "arriveTime"]))
+        product_features.append(get_feature_desc(line, "回程交通", 'backTransportName'))
+        product_features.append(get_feature_desc(line,
+                                                 "回程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",
+                                                 'backAirports', ["airlineName", "flightNo", "startAirportName",
+                                                                  "arriveAirportName", "startTime", "arriveTime"]))
+
+        # 行程信息（严格保持原有遍历方式）
+        if "trips" in line and line["trips"]:
+            product_features.append("\n=== 每日行程信息 ===")
+            try:
+                for trip in line["trips"]:
+                    product_features.append(f"\n【第 {trip.get('tripDay', '?')} 天】")
+                    product_features.append(get_feature_desc(trip, "行程内容", 'content'))
+
+                    # 保持原有交通信息获取方式
+                    product_features.append(get_feature_desc(trip,
+                                                             "交通（出发地、时间、目的地、到达时间、方式）",
+                                                             'scheduleTraffics',
+                                                             ["departure", "departureTime", "destination",
+                                                              "arrivalTime", "trafficType"]))
+
+                    # 保持原有酒店信息获取方式
+                    product_features.append(get_feature_desc(trip,
+                                                             "酒店（名称、星级）",
+                                                             'hotels', ["name", "star"]))
+
+                    # 保持原有景点信息获取方式
+                    product_features.append(get_feature_desc(trip,
+                                                             "景点（名称、描述）",
+                                                             'scenics', ["name", "description"]))
+
+            except Exception as e:
+                trace_info = traceback.format_exc()
+                log.error(f'获取行程信息异常: {str(e)}\n{trace_info}')
+                product_features.append("行程信息获取异常")
+
+    return "\n".join([f for f in product_features if f and not f.endswith("：")])
+
+
+async def search_by_destination(country: str = "", province: str = "", city: str = "", current_page: int = 1) -> str:
     """
-    根据目的地查询产品编号
+    根据目的地查询产品信息
 
     Args:
-        country: 国家名称 (可选)
-        province: 省份名称 (可选)
-        city: 城市名称 (可选)
+        country: 国家名称
+        province: 省份名称
+        city: 城市名称
+        current_page: 当前页码
 
     Returns:
-        匹配的产品编号列表（已去重）
+        JSON字符串格式: {
+            "current_page": 当前页码,
+            "total_pages": 总页数,
+            "message": 包含产品详细信息的消息
+        }
     """
     # 构建查询参数
     search_args = {}
@@ -117,66 +183,129 @@ async def search_by_destination(country: str = "", province: str = "", city: str
     if city and get_city_code(city):
         search_args["destCityCode"] = get_city_code(city)
 
-    # Return empty list if no valid codes were found
     if not search_args:
-        return []
+        return json.dumps({
+            "current_page": 1,
+            "total_pages": 1,
+            "message": "至少需要提供国家、省份或城市中的一个参数"
+        })
 
-    # Wrap in list to maintain original structure
-    search_args = [search_args]
+    # 设置分页参数
+    params = {
+        "current": current_page,
+        "pageSize": 10,
+        **search_args
+    }
 
     try:
-        results = await product_search(search_args)
-        # 使用字典来去重，保持顺序
-        unique_products = {}
-        for item in results:
-            if item.get("productNum"):
-                product_num = item["productNum"]
-                if product_num not in unique_products:
-                    unique_products[product_num] = True
-        return list(unique_products.keys())
+        response = await fetch_product_page(params)
+        if not response or 'data' not in response:
+            return json.dumps({
+                "current_page": current_page,
+                "total_pages": 1,
+                "message": "未获取到有效数据"
+            })
+
+        data = response['data']
+        total_pages = data.get('pages', 1)
+        products = data.get('records', [])
+
+        # 获取所有产品的详细信息
+        product_features = []
+        for product in products:
+            if product_num := product.get('productNum'):
+                features = await get_product_features(product_num)
+                product_features.append(features)
+
+        message = "查询成功\n" + "\n\n".join(product_features) if product_features else "没有找到产品详细信息"
+
+        return json.dumps({
+            "current_page": current_page,
+            "total_pages": total_pages,
+            "message": message
+        })
+
     except Exception as e:
         log.error(f"目的地产品查询失败: {str(e)}")
-        return []
+        return json.dumps({
+            "current_page": current_page,
+            "total_pages": 1,
+            "message": f"查询失败: {str(e)}"
+        })
 
 
-async def search_by_pass_through(country: str = "", province: str = "", city: str = "") -> List[str]:
+async def search_by_pass_through(country: str = "", province: str = "", city: str = "", current_page: int = 1) -> str:
     """
-    根据途经地查询产品编号
+    根据途经地查询产品信息
 
     Args:
-        country: 国家名称 (可选)
-        province: 省份名称 (可选)
-        city: 城市名称 (可选)
+        country: 国家名称
+        province: 省份名称
+        city: 城市名称
+        current_page: 当前页码
 
     Returns:
-        匹配的产品编号列表（已去重）
+        JSON字符串格式: {
+            "current_page": 当前页码,
+            "total_pages": 总页数,
+            "message": 包含产品详细信息的消息
+        }
     """
     # 构建查询参数
     search_args = {}
     if country and get_country_code(country):
-        search_args["destCountryCode"] = get_country_code(country)
+        search_args["passCountryCode"] = get_country_code(country)
     if province and get_province_code(province):
-        search_args["destProvinceCode"] = get_province_code(province)
+        search_args["passProvinceCode"] = get_province_code(province)
     if city and get_city_code(city):
-        search_args["destCityCode"] = get_city_code(city)
+        search_args["passCityCode"] = get_city_code(city)
 
-    # Return empty list if no valid codes were found
     if not search_args:
-        return []
+        return json.dumps({
+            "current_page": 1,
+            "total_pages": 1,
+            "message": "至少需要提供国家、省份或城市中的一个参数"
+        })
 
-    # Wrap in list to maintain original structure
-    search_args = [search_args]
+    # 设置分页参数
+    params = {
+        "current": current_page,
+        "pageSize": 10,
+        **search_args
+    }
 
     try:
-        results = await product_search(search_args)
-        # 使用字典来去重，保持顺序
-        unique_products = {}
-        for item in results:
-            if item.get("productNum"):
-                product_num = item["productNum"]
-                if product_num not in unique_products:
-                    unique_products[product_num] = True
-        return list(unique_products.keys())
+        response = await fetch_product_page(params)
+        if not response or 'data' not in response:
+            return json.dumps({
+                "current_page": current_page,
+                "total_pages": 1,
+                "message": "未获取到有效数据"
+            })
+
+        data = response['data']
+        total_pages = data.get('pages', 1)
+        products = data.get('records', [])
+
+        # 获取所有产品的详细信息
+        product_features = []
+        for product in products:
+            if product_num := product.get('productNum'):
+                features = await get_product_features(product_num)
+                product_features.append(features)
+
+        message = "查询成功\n" + "\n\n".join(product_features) if product_features else "没有找到产品详细信息"
+
+        return json.dumps({
+            "current_page": current_page,
+            "total_pages": total_pages,
+            "message": message
+        })
+
     except Exception as e:
         log.error(f"途经地产品查询失败: {str(e)}")
-        return []
+        return json.dumps({
+            "current_page": current_page,
+            "total_pages": 1,
+            "message": f"查询失败: {str(e)}"
+        })

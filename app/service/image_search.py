@@ -6,7 +6,7 @@ import concurrent.futures
 from urllib.parse import quote
 
 # 创建线程池执行器用于后台任务
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+semaphore = asyncio.Semaphore(2)
 
 KB_ID = config["image_id"]
 
@@ -29,7 +29,11 @@ async def image_search(query: str, image_num) -> List[Dict]:
     return all_results
 
 async def images_search(queries: List[str], image_num: int) -> Dict[str, List[Dict]]:
-    tasks = [image_search(query, image_num) for query in queries]
+    async def limited_search(query):
+        async with semaphore:  # 获取信号量，如果已满则等待
+            return await image_search(query, image_num)
+
+    tasks = [limited_search(query) for query in queries]
     results = await asyncio.gather(*tasks)
 
     all_results = {}

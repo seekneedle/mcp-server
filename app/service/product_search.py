@@ -111,21 +111,21 @@ async def get_product_features(product_num: str) -> str:
     if "lineList" in product_detail and product_detail["lineList"]:
         line = product_detail["lineList"][0]  # 只处理第一条线路
 
-        # 往返航班信息（严格保持原有获取方式）
-        product_features.append("=== 往返航班信息 ===")
-        product_features.append(get_feature_desc(line, "去程交通", 'goTransportName'))
-        product_features.append(get_feature_desc(line,
-                                                 "去程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",
-                                                 'goAirports', ["airlineName", "flightNo", "startAirportName",
-                                                                "arriveAirportName", "startTime", "arriveTime"]))
-        product_features.append(get_feature_desc(line, "回程交通", 'backTransportName'))
-        product_features.append(get_feature_desc(line,
-                                                 "回程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",
-                                                 'backAirports', ["airlineName", "flightNo", "startAirportName",
-                                                                  "arriveAirportName", "startTime", "arriveTime"]))
-
         # 行程信息（严格保持原有遍历方式）
         if "trips" in line and line["trips"]:
+            # 往返航班信息（严格保持原有获取方式）
+            product_features.append("=== 往返航班信息 ===")
+            product_features.append(get_feature_desc(line, "去程交通", 'goTransportName'))
+            product_features.append(get_feature_desc(line,
+                                                     "去程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",
+                                                     'goAirports', ["airlineName", "flightNo", "startAirportName",
+                                                                    "arriveAirportName", "startTime", "arriveTime"]))
+            product_features.append(get_feature_desc(line, "回程交通", 'backTransportName'))
+            product_features.append(get_feature_desc(line,
+                                                     "回程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",
+                                                     'backAirports', ["airlineName", "flightNo", "startAirportName",
+                                                                      "arriveAirportName", "startTime", "arriveTime"]))
+
             product_features.append("\n=== 每日行程信息 ===")
             try:
                 for trip in line["trips"]:
@@ -203,12 +203,19 @@ async def search_by_destination(country: str = "", province: str = "", city: str
 
         # 获取所有产品的详细信息
         product_features = []
+        cnt = 0
         for product in products:
             if product_num := product.get('productNum'):
                 features = await get_product_features(product_num)
-                product_features.append(features)
+                if features:
+                    cnt += 1
+                    product_features.append(features)
+                    if cnt >2:
+                        break
 
         message = "查询成功\n" + "\n\n".join(product_features) if product_features else "没有找到产品详细信息"
+
+        log.info(f"【产品检索长度】【{search_args}】: {len(message)}")
 
         return f"当前页：{current_page}\n总页数：{total_pages}\n旅行产品信息：\n{message}"
 

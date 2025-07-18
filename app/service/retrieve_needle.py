@@ -23,7 +23,7 @@ async def retrieve_needle(query: str, index_id: str = ID, top_k: int = 3, min_sc
         "sparse_top_k": top_k * 5
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=config['timeout']) as client:
         try:
             response = await client.post(
                 URL,

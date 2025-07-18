@@ -4,7 +4,6 @@ from utils.config import config
 from utils.log import log
 from urllib.parse import urlencode
 from utils.geo import get_city_code, get_province_code, get_country_code
-import json
 import traceback
 
 
@@ -76,7 +75,7 @@ async def fetch_product_page(params: Dict) -> Optional[Dict]:
     log.info(f"Fetching data from: {url}")
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=config['timeout']) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             return resp.json()
@@ -91,7 +90,7 @@ async def fetch_product_detail(product_num: str) -> Optional[Dict]:
     url = f"{base_url}/productInfo?productNum={product_num}"
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=config['timeout']) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             return resp.json().get('data')

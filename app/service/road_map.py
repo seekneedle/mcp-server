@@ -163,7 +163,7 @@ async def geocode_openai(locations: List[str]) -> List[Dict[str, str]]:
 async def geocode_amap(locations: List[str]) -> List[Dict[str, str]]:
     """Get coordinates for international locations using AMap"""
     results = []
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=config['timeout']) as client:
         for location in locations:
             try:
                 url = f"https://restapi.amap.com/v3/geocode/geo?key={AMAP_KEY}&address={location}"
@@ -186,7 +186,7 @@ async def geocode_amap(locations: List[str]) -> List[Dict[str, str]]:
 async def geocode_tmap(locations: List[str]) -> List[Dict[str, str]]:
     """Get coordinates for domestic locations using TMap"""
     results = []
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=config['timeout']) as client:
         for location in locations:
             try:
                 url = f"https://api.tianditu.gov.cn/geocoder?ds={'{'}'key':'{TMAP_KEY}'{'}'}&addr={location}"
@@ -208,7 +208,7 @@ async def geocode_tmap(locations: List[str]) -> List[Dict[str, str]]:
 async def geocode_weather(locations: List[str]) -> List[Dict[str, str]]:
     """Get coordinates for locations using OpenWeatherMap Geo API"""
     results = []
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=config['timeout']) as client:
         for location in locations:
             try:
                 url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={WEATHER_KEY}"
@@ -280,7 +280,7 @@ async def get_weather_by_coordinate(lat: str, lon: str, date: str, tz: str = "+0
         weather_key = decrypt(config["weather_key"])
         url = f"https://api.openweathermap.org/data/3.0/onecall/day_summary?lat={lat}&lon={lon}&date={date}&tz={tz}&units={units}&appid={weather_key}"
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=config['timeout']) as client:
             response = await client.get(url)
             response.raise_for_status()
             weather_data = response.json()

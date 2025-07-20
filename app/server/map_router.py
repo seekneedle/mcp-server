@@ -25,12 +25,14 @@ async def generate_itinerary(locations: List[Dict[str, str]]) -> str:
     参数:
         locations: 地点信息列表，每个地点包含name(名称，优先使用中文)、lng(经度)、lat(纬度)
            示例: [{"name": "北京", "lng": "116.407", "lat": "39.904"}]
+           如果有途径点经纬度信息，将地点名称和经纬度传入locations列表。
 
     返回:
         生成的HTML路书地图文件路径，失败时返回空字符串
     """
     try:
         if not locations:
+            log.info(f"生成旅行地图异常，输入locations为空")
             return ""
         log.info(f"生成旅行地图: {locations}")
         return await create_tmap(locations)

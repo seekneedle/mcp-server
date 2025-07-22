@@ -69,39 +69,61 @@ async def create_amap(locations: List[Dict[str, str]]) -> str:
         return ""
 
 
-async def create_tmap(locations: List[Dict[str, str]]) -> str:
-    """创建国内地图(使用天地图)"""
+async def create_tmap(locations: List[Dict[str, str]], lines: List[Dict[str, str]]) -> str:
+    """创建国内地图(使用天地图)
+
+    参数:
+        locations: 标记点列表，每个元素包含lng(经度)、lat(纬度)和name(名称)
+        lines: 线路列表，每个元素包含start_lng(起点经度)、start_lat(起点纬度)、
+              end_lng(终点经度)、end_lat(终点纬度)
+
+    返回:
+        生成的地图HTML文件URL
+    """
     try:
-        # 准备城市数据
+        # 准备标记点数据
         points = []
         for i, loc in enumerate(locations):
             points.append({
                 "lng": str(loc["lng"]),
                 "lat": str(loc["lat"]),
-                "index": f"第{i + 1}天{loc.get('name', f'地点{i + 1}')}"
-                })
+                "index": loc.get('name', f'地点{i + 1}')
+            })
 
-            # 读取模板
-            with open(DOMESTIC_TEMPLATE, "r", encoding="utf-8") as f:
-                template = f.read()
+        # 准备线路数据
+        line_segments = []
+        for line in lines:
+            line_segments.append({
+                "start_lng": str(line["start_lng"]),
+                "start_lat": str(line["start_lat"]),
+                "end_lng": str(line["end_lng"]),
+                "end_lat": str(line["end_lat"])
+            })
 
-            # 替换模板中的变量
-            html_content = template.replace("${points_json}", json.dumps(points, ensure_ascii=False))
+        # 读取模板
+        with open(DOMESTIC_TEMPLATE, "r", encoding="utf-8") as f:
+            template = f.read()
 
-            # 生成唯一文件名
-            filename = f"map_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}.html"
-            output_path = OUTPUT_DIR / filename
+        # 替换模板中的变量
+        html_content = template.replace("${points_json}", json.dumps(points, ensure_ascii=False))
+        html_content = html_content.replace("${lines_json}", json.dumps(line_segments, ensure_ascii=False))
 
-            # 保存HTML文件
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
+        # 确保输出目录存在
+        OUTPUT_DIR.mkdir(exist_ok=True)
+
+        # 生成唯一文件名
+        filename = f"map_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:6]}.html"
+        output_path = OUTPUT_DIR / filename
+
+        # 保存HTML文件
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
 
         log.info(f"生成旅行地图: {BASE_URL}/{filename}")
         return f"{BASE_URL}/{filename}"
 
     except Exception as e:
-        trace_info = traceback.format_exc()
-        log.error(f"create_tmap失败: {str(e)}, trace: {trace_info}")
+        log.error(f"创建地图失败: {str(e)}")
         return ""
 
 

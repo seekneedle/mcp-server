@@ -16,20 +16,17 @@
 <body>
 <div id="map"></div>
 <script type="text/javascript">
-    // 城市坐标点（按顺序排列）
+    // 城市坐标点
     var points = ${points_json};
+    // 线路数据
+    var lines = ${lines_json};
 
     // 初始化地图
     function initMap() {
         var map = new T.Map('map');
 
-        // 计算中心点
-        var centerLng = (points[0].lng + points[points.length-1].lng) / 2;
-        var centerLat = (points[0].lat + points[points.length-1].lat) / 2;
-        var center = new T.LngLat(centerLng, centerLat);
-
-        // 设置初始缩放级别（中等缩放）
-        map.centerAndZoom(center, 7);
+        // 设置初始视图（后面会调整）
+        map.centerAndZoom(new T.LngLat(116.407, 39.904), 5);
 
         // 添加标记点
         addMarkers(map);
@@ -41,7 +38,7 @@
         adjustView(map);
     }
 
-    // 添加标注点并显示数字
+    // 添加标注点并显示名称
     function addMarkers(map) {
         for (var i = 0; i < points.length; i++) {
             var marker = new T.Marker(new T.LngLat(points[i].lng, points[i].lat));
@@ -63,53 +60,42 @@
         }
     }
 
-    // 绘制连接线（按顺序连接）
+    // 绘制连接线
     function drawRoute(map) {
-        // 创建折线对象
-        var polyline = new T.Polyline(
-            points.map(point => new T.LngLat(point.lng, point.lat)),
-            {
-                strokeColor: "#0066FF",
-                strokeWeight: 5,
-                strokeOpacity: 0.8
-            }
-        );
-        map.addOverLay(polyline);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var polyline = new T.Polyline(
+                [
+                    new T.LngLat(line.start_lng, line.start_lat),
+                    new T.LngLat(line.end_lng, line.end_lat)
+                ],
+                {
+                    strokeColor: "#0066FF",
+                    strokeWeight: 5,
+                    strokeOpacity: 0.8
+                }
+            );
+            map.addOverLay(polyline);
+        }
     }
 
     // 调整视图以显示所有点
     function adjustView(map) {
-        // 计算最小和最大经纬度
-        var minLng = Math.min(...points.map(p => p.lng));
-        var maxLng = Math.max(...points.map(p => p.lng));
-        var minLat = Math.min(...points.map(p => p.lat));
-        var maxLat = Math.max(...points.map(p => p.lat));
+        // 收集所有坐标点（标记点和线路端点）
+        var allPoints = points.map(p => new T.LngLat(p.lng, p.lat));
+        for (var i = 0; i < lines.length; i++) {
+            allPoints.push(new T.LngLat(lines[i].start_lng, lines[i].start_lat));
+            allPoints.push(new T.LngLat(lines[i].end_lng, lines[i].end_lat));
+        }
 
-        // 计算中心点
-        var centerLng = (minLng + maxLng) / 2;
-        var centerLat = (minLat + maxLat) / 2;
-        var center = new T.LngLat(centerLng, centerLat);
+        // 计算边界
+        var bounds = new T.LngLatBounds();
+        for (var i = 0; i < allPoints.length; i++) {
+            bounds.extend(allPoints[i]);
+        }
 
-        // 计算经纬度跨度
-        var lngSpan = maxLng - minLng;
-        var latSpan = maxLat - minLat;
-
-        // 根据跨度估算合适的缩放级别
-        var zoom;
-        var span = Math.max(lngSpan, latSpan);
-
-        if (span < 0.1) zoom = 11;
-        else if (span < 0.2) zoom = 10;
-        else if (span < 0.5) zoom = 9;
-        else if (span < 1) zoom = 8;
-        else if (span < 2) zoom = 7;
-        else if (span < 4) zoom = 6;
-        else if (span < 8) zoom = 5;
-        else if (span < 16) zoom = 4;
-        else zoom = 3;
-
-        // 设置地图视图
-        map.centerAndZoom(center, zoom+1);
+        // 调整视图
+        map.fitBounds(bounds.pad(0.2));  // 添加20%的padding
     }
 
     // 页面加载完成后初始化地图

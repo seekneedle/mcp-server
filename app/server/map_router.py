@@ -18,49 +18,74 @@ map_mcp = FastMCP(
 
 
 @map_mcp.tool(name="按照途经点生成路书地图")
-async def generate_itinerary(locations: List[str]) -> str:
+async def generate_itinerary(markers: List[str], lines: List[str]=[]) -> str:
     """
     按照途经点生成路书地图
 
     参数:
-        locations: 地点信息字符串列表，每个字符串格式为"名称,经度,纬度"
-           示例: ["北京,116.407,39.904", "上海,121.473,31.230"]
+        markers: 在地图上的标记点的名称和坐标，每个标记点格式为"名称,经度,纬度"
+           示例: ["第1天和第7天北京,116.407,39.904", "第2到6天上海,121.473,31.230"]
+        lines: 按照途径点行程顺序的线路首尾坐标（线路没有方向，因此首位坐标互换如果相同，只需要保留一条线路信息，若只有一个marker，则lines为空列表），每条线路的格式为"首节点经度,首节点纬度,尾节点经度,尾节点纬度"
+           示例: ["116.407,39.904,121.473,31.230"]
 
     返回:
         生成的HTML路书地图文件路径，失败时返回空字符串
     """
     try:
-        if not locations:
-            log.info("生成旅行地图异常，输入locations为空")
+        if not markers:
+            log.info("生成旅行地图异常，输入markers为空")
             return ""
 
-        log.info(f"生成旅行地图: {locations}")
+        log.info(f"生成旅行地图 markers: {markers}， lines: {lines}")
 
-        # 将字符串列表转换为create_tmap所需的字典格式
-        processed_locations = []
-        for loc_str in locations:
+        # 处理标记点
+        processed_markers = []
+        for marker_str in markers:
             try:
                 # 分割字符串为名称、经度、纬度三部分
-                parts = loc_str.split(',', 2)  # 最多分割成3部分
+                parts = marker_str.split(',', 2)  # 最多分割成3部分
                 if len(parts) != 3:
-                    log.error(f"无效的地点格式: {loc_str}")
+                    log.error(f"无效的标记点格式: {marker_str}")
                     continue
 
                 name, lng, lat = parts
-                processed_locations.append({
+                processed_markers.append({
                     "name": name.strip(),
                     "lng": lng.strip(),
                     "lat": lat.strip()
                 })
             except Exception as e:
-                log.error(f"解析地点失败: {loc_str}, 错误: {str(e)}")
+                log.error(f"解析标记点失败: {marker_str}, 错误: {str(e)}")
 
-        if not processed_locations:
-            log.error("无有效地点数据")
+        if not processed_markers:
+            log.error("无有效标记点数据")
             return ""
 
-        log.info(f"转换后的地点数据: {processed_locations}")
-        return await create_tmap(processed_locations)
+        log.info(f"转换后的标记点数据: {processed_markers}")
+
+        # 处理线路
+        processed_lines = []
+        for line_str in lines:
+            try:
+                # 分割字符串为起点经度、起点纬度、终点经度、终点纬度
+                parts = line_str.split(',')
+                if len(parts) != 4:
+                    log.error(f"无效的线路格式: {line_str}")
+                    continue
+
+                start_lng, start_lat, end_lng, end_lat = parts
+                processed_lines.append({
+                    "start_lng": start_lng.strip(),
+                    "start_lat": start_lat.strip(),
+                    "end_lng": end_lng.strip(),
+                    "end_lat": end_lat.strip()
+                })
+            except Exception as e:
+                log.error(f"解析线路失败: {line_str}, 错误: {str(e)}")
+
+        log.info(f"转换后的线路数据: {processed_lines}")
+
+        return await create_tmap(processed_markers, processed_lines)
 
     except Exception as e:
         trace_info = traceback.format_exc()

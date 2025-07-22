@@ -25,8 +25,11 @@
     function initMap() {
         var map = new T.Map('map');
 
-        // 设置初始视图（后面会调整）
-        map.centerAndZoom(new T.LngLat(116.407, 39.904), 5);
+        // 计算初始中心点和最佳缩放级别
+        var viewInfo = calculateInitialView(points, lines);
+        
+        // 设置初始视图
+        map.centerAndZoom(viewInfo.center, viewInfo.zoom);
 
         // 添加标记点
         addMarkers(map);
@@ -34,8 +37,67 @@
         // 绘制路线
         drawRoute(map);
 
-        // 添加覆盖物后重新计算视图
+        // 添加覆盖物后重新计算视图（微调）
         adjustView(map);
+    }
+
+    // 计算初始视图的中心点和缩放级别
+    function calculateInitialView(points, lines) {
+        // 收集所有坐标点（标记点和线路端点）
+        var allPoints = [];
+        
+        // 添加标记点
+        points.forEach(function(point) {
+            allPoints.push(new T.LngLat(parseFloat(point.lng), parseFloat(point.lat)));
+        });
+        
+        // 添加线路端点
+        lines.forEach(function(line) {
+            allPoints.push(new T.LngLat(parseFloat(line.start_lng), parseFloat(line.start_lat)));
+            allPoints.push(new T.LngLat(parseFloat(line.end_lng), parseFloat(line.end_lat)));
+        });
+
+        // 如果没有点，使用默认北京视图
+        if (allPoints.length === 0) {
+            return {
+                center: new T.LngLat(116.407, 39.904),
+                zoom: 5
+            };
+        }
+
+        // 计算最小和最大经纬度
+        var minLng = Math.min(...allPoints.map(p => p.getLng()));
+        var maxLng = Math.max(...allPoints.map(p => p.getLng()));
+        var minLat = Math.min(...allPoints.map(p => p.getLat()));
+        var maxLat = Math.max(...allPoints.map(p => p.getLat()));
+
+        // 计算中心点
+        var centerLng = (minLng + maxLng) / 2;
+        var centerLat = (minLat + maxLat) / 2;
+        var center = new T.LngLat(centerLng, centerLat);
+
+        // 计算经纬度跨度
+        var lngSpan = maxLng - minLng;
+        var latSpan = maxLat - minLat;
+
+        // 根据跨度估算合适的缩放级别（保留原有逻辑）
+        var zoom;
+        var span = Math.max(lngSpan, latSpan);
+
+        if (span < 0.1) zoom = 11;
+        else if (span < 0.2) zoom = 10;
+        else if (span < 0.5) zoom = 9;
+        else if (span < 1) zoom = 8;
+        else if (span < 2) zoom = 7;
+        else if (span < 4) zoom = 6;
+        else if (span < 8) zoom = 5;
+        else if (span < 16) zoom = 4;
+        else zoom = 3;
+
+        return {
+            center: center,
+            zoom: zoom + 1  // 加1级以获得更好的显示效果
+        };
     }
 
     // 添加标注点并显示名称
@@ -79,23 +141,25 @@
         }
     }
 
-    // 调整视图以显示所有点
+    // 微调视图以确保所有内容可见
     function adjustView(map) {
-        // 收集所有坐标点（标记点和线路端点）
-        var allPoints = points.map(p => new T.LngLat(p.lng, p.lat));
-        for (var i = 0; i < lines.length; i++) {
-            allPoints.push(new T.LngLat(lines[i].start_lng, lines[i].start_lat));
-            allPoints.push(new T.LngLat(lines[i].end_lng, lines[i].end_lat));
-        }
-
-        // 计算边界
+        // 使用地图自带的fitBounds方法进行微调
         var bounds = new T.LngLatBounds();
-        for (var i = 0; i < allPoints.length; i++) {
-            bounds.extend(allPoints[i]);
+        
+        // 添加所有标记点
+        points.forEach(function(point) {
+            bounds.extend(new T.LngLat(point.lng, point.lat));
+        });
+        
+        // 添加所有线路端点
+        lines.forEach(function(line) {
+            bounds.extend(new T.LngLat(line.start_lng, line.start_lat));
+            bounds.extend(new T.LngLat(line.end_lng, line.end_lat));
+        });
+        
+        if (!bounds.isEmpty()) {
+            map.fitBounds(bounds.pad(0.1));  // 添加10%的边距
         }
-
-        // 调整视图
-        map.fitBounds(bounds.pad(0.2));  // 添加20%的padding
     }
 
     // 页面加载完成后初始化地图

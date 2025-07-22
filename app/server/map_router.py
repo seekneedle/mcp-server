@@ -18,23 +18,49 @@ map_mcp = FastMCP(
 
 
 @map_mcp.tool(name="按照途经点生成路书地图")
-async def generate_itinerary(locations: List[Dict[str, str]]) -> str:
+async def generate_itinerary(locations: List[str]) -> str:
     """
     按照途经点生成路书地图
 
     参数:
-        locations: 地点信息列表，每个地点包含name(名称，优先使用中文)、lng(经度)、lat(纬度)
-           示例: [{"name": "北京", "lng": "116.407", "lat": "39.904"}]
+        locations: 地点信息字符串列表，每个字符串格式为"名称,经度,纬度"
+           示例: ["北京,116.407,39.904", "上海,121.473,31.230"]
 
     返回:
         生成的HTML路书地图文件路径，失败时返回空字符串
     """
     try:
         if not locations:
-            log.info(f"生成旅行地图异常，输入locations为空")
+            log.info("生成旅行地图异常，输入locations为空")
             return ""
+
         log.info(f"生成旅行地图: {locations}")
-        return await create_tmap(locations)
+
+        # 将字符串列表转换为create_tmap所需的字典格式
+        processed_locations = []
+        for loc_str in locations:
+            try:
+                # 分割字符串为名称、经度、纬度三部分
+                parts = loc_str.split(',', 2)  # 最多分割成3部分
+                if len(parts) != 3:
+                    log.error(f"无效的地点格式: {loc_str}")
+                    continue
+
+                name, lng, lat = parts
+                processed_locations.append({
+                    "name": name.strip(),
+                    "lng": lng.strip(),
+                    "lat": lat.strip()
+                })
+            except Exception as e:
+                log.error(f"解析地点失败: {loc_str}, 错误: {str(e)}")
+
+        if not processed_locations:
+            log.error("无有效地点数据")
+            return ""
+
+        log.info(f"转换后的地点数据: {processed_locations}")
+        return await create_tmap(processed_locations)
 
     except Exception as e:
         trace_info = traceback.format_exc()

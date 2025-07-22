@@ -12,6 +12,7 @@ uux_base_url: "https://mapi.uuxlink.com/mcsp/productAi"
 needle_base_url: "http://8.152.213.191:8471"
 needle_id: "icmp3tfyk6"
 image_id: "8au4m6e2d4"
+video_id: "j0fv2k8ydh"
 needle_auth: "1a9998513e08745d70092e5c018e1f9c4e97dceed90c31ea317a3c1c309e0f6016bfdc3d27eb452f1c7ad81b767b4f5b703acc02e70bd0669a5315f0a4952533"
 
 database:
@@ -41,6 +42,7 @@ oss_region: "cn-beijing"
 oss_bucket: "uux-public"
 oss_path: "travel/guide/img/"
 oss_link: "https://uux-public.oss-cn-beijing.aliyuncs.com/travel/guide/img/"
+video_oss_link: "https://uux-public.oss-cn-beijing.aliyuncs.com/travel/guide/video/"
 
 amap_key: "103f3a79241941e005ec8dbefeb450b2144eb6635facb7884213cfee5e8b418832af03ecd541de15d0a705b6d20c6b603d9f57c216a6e84bb98499074e93aa16"
 tmap_key: "97442b9b0ae00fee5d86033deacd1c06a308fbdfa241871be501884ecabbcfb5491f1408be904bb7d937799fac1bc4cd7b4f4a791cb54028a0b98b123f15999c"

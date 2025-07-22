@@ -4,6 +4,7 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from server.product_router import product_mcp
 from server.image_router import image_mcp
+from server.video_router import video_mcp
 from server.map_router import map_mcp
 import uvicorn
 
@@ -36,6 +37,11 @@ ALL_MCPS = [
         'path': '/v1/image',
         'middlewares': [],
         'app': image_mcp.sse_app()
+    },
+    {
+        'path': '/v1/video',
+        'middlewares': [],
+        'app': video_mcp.sse_app()
     },
     {
         'path': '/v1/map',

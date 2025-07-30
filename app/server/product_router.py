@@ -15,7 +15,7 @@ async def search_dest_product_nums(country: str = "", province: str = "", city: 
     """
     使用目的地查询旅行产品
 
-    注意：至少需要提供国家、省份或城市中的一个参数
+    注意：至少需要提供国家、省份或城市中的一个参数，如果同时包含国家省份或城市，可以整合到一起查询。
 
     Args:
         country: 国家名称 (可选)， 最多只允许有一个国家

@@ -174,7 +174,8 @@ async def get_product_abs(product_num: str) -> str:
                     product_features.append(f"\n【第 {trip.get('tripDay', '?')} 天】")
                     #product_features.append(get_feature_desc(trip, "行程内容", 'content'))
                     content = get_feature_desc(trip, "行程内容", 'content')
-                    product_features.append(get_scenics(content))
+                    scenics = await get_scenics(content)
+                    product_features.append(scenics)
 
                     # 保持原有交通信息获取方式
                     product_features.append(get_feature_desc(trip,

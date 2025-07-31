@@ -68,7 +68,7 @@ async def search_dest_product_details(country: str = "", province: str = "", cit
 #     return await search_by_pass_through(country, province, city)
 
 
-@product_mcp.tool(name="使用产品编号旅行产品")
+@product_mcp.tool(name="使用产品编号查询旅行产品")
 async def search_by_product_num(product_num: str) -> str:
     """
     使用产品编号查询旅行产品的详情，返回信息包含景点酒店机票的具体描述

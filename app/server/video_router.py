@@ -3,6 +3,7 @@ from typing import List, Dict
 from utils.log import log
 from service.video_search import videos_search
 import traceback
+import time  # 新增导入time模块
 
 video_mcp = FastMCP(
     name='video-mcp-server',
@@ -25,8 +26,9 @@ async def keyword_video_search(keywords: List[str], video_num: int=3) -> Dict[st
     返回:
         字典格式结果，key为关键字，value为对应的视频路径列表
     """
+    start_time = time.time()  # 记录开始时间
     try:
-        log.info(f"开始视频搜索，关键字列表: {keywords}, 检索个数: {video_num}")
+        log.info(f"Starting keyword_video_search - keywords: {keywords}, video_num: {video_num}")
         results = await videos_search(keywords, video_num)
         log.info(f"视频搜索完成，结果: {results}")
         return results
@@ -35,3 +37,6 @@ async def keyword_video_search(keywords: List[str], video_num: int=3) -> Dict[st
         log.error(f"视频搜索失败: {str(e)}, trace: {trace_info}")
         # 返回空字典而不是空列表以保持类型一致性
         return {keyword: [] for keyword in keywords}
+    finally:
+        duration = time.time() - start_time  # 计算耗时
+        log.info(f"Completed keyword_video_search in {duration:.2f} seconds")  # 记录耗时

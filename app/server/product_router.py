@@ -1,5 +1,7 @@
 from fastmcp import FastMCP
 from service.product_search import search_by_detail, search_by_abs, get_product_features
+from utils.log import log
+import time
 
 product_mcp = FastMCP(
     name='product-mcp-server',
@@ -26,9 +28,14 @@ async def search_dest_product_abstract(country: str = "", province: str = "", ci
     Returns:
         匹配的产品框架，不包括景点酒店机票的具体描述，当前查询到第几页，总页数
     """
-#将目的地和途经地综合返回
-#直接给product num，详情修改为使用product number查询
-    return await search_by_abs(country, province, city, current_page)
+    start_time = time.time()
+    try:
+        log.info(f"Starting search_dest_product_abstract - country: {country}, province: {province}, city: {city}, page: {current_page}")
+        result = await search_by_abs(country, province, city, current_page)
+        return result
+    finally:
+        duration = time.time() - start_time
+        log.info(f"Completed search_dest_product_abstract in {duration:.2f} seconds")
 
 @product_mcp.tool(name="使用目的地查询旅行产品详情")
 async def search_dest_product_details(country: str = "", province: str = "", city: str = "", current_page: int=1) -> str:
@@ -46,7 +53,13 @@ async def search_dest_product_details(country: str = "", province: str = "", cit
     Returns:
         匹配的产品信息，包括景点酒店机票的具体描述，当前查询到第几页，总页数
     """
-    return await search_by_detail(country, province, city, current_page)
+    start_time = time.time()
+    try:
+        log.info(f"Starting search_dest_product_details - country: {country}, province: {province}, city: {city}, page: {current_page}")
+        return await search_by_detail(country, province, city, current_page)
+    finally:
+        duration = time.time() - start_time
+        log.info(f"Completed search_dest_product_details in {duration:.2f} seconds")
 
 
 # @product_mcp.tool(name="使用途经地查询旅行产品")
@@ -65,7 +78,13 @@ async def search_dest_product_details(country: str = "", province: str = "", cit
 #     Returns:
 #         匹配的产品信息，当前查询到第几页，总页数
 #     """
-#     return await search_by_pass_through(country, province, city)
+#     start_time = time.time()
+#     try:
+#         log.info(f"Starting search_pass_product_nums - country: {country}, province: {province}, city: {city}, page: {current_page}")
+#         return await search_by_pass_through(country, province, city)
+#     finally:
+#         duration = time.time() - start_time
+#         log.info(f"Completed search_pass_product_nums in {duration:.2f} seconds")
 
 
 @product_mcp.tool(name="使用产品编号查询旅行产品详情")
@@ -81,4 +100,10 @@ async def search_by_product_num(product_num: str) -> str:
     Returns:
         匹配的产品信息，包括景点酒店机票的具体描述
     """
-    return await get_product_features(product_num)
+    start_time = time.time()
+    try:
+        log.info(f"Starting search_by_product_num - product_num: {product_num}")
+        return await get_product_features(product_num)
+    finally:
+        duration = time.time() - start_time
+        log.info(f"Completed search_by_product_num in {duration:.2f} seconds")

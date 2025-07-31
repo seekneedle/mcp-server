@@ -7,6 +7,7 @@ from service.road_map import (
     get_weather
 )
 import traceback
+import time
 
 map_mcp = FastMCP(
     name='map-mcp-server',
@@ -18,7 +19,7 @@ map_mcp = FastMCP(
 
 
 @map_mcp.tool(name="按照途经点生成路书地图")
-async def generate_map(markers: List[str], lines: List[str]=[]) -> str:
+async def generate_map(markers: List[str], lines: List[str] = []) -> str:
     """
     按照途经点生成路书地图
 
@@ -31,12 +32,13 @@ async def generate_map(markers: List[str], lines: List[str]=[]) -> str:
     返回:
         生成的HTML路书地图文件路径，失败时返回空字符串
     """
+    start_time = time.time()
     try:
+        log.info(f"Starting generate_map - markers: {markers}, lines: {lines}")
+
         if not markers:
             log.info("生成旅行地图异常，输入markers为空")
             return ""
-
-        log.info(f"生成旅行地图 markers: {markers}， lines: {lines}")
 
         # 处理标记点
         processed_markers = []
@@ -91,6 +93,9 @@ async def generate_map(markers: List[str], lines: List[str]=[]) -> str:
         trace_info = traceback.format_exc()
         log.error(f"生成旅行地图失败: {str(e)}, trace: {trace_info}")
         return ""
+    finally:
+        duration = time.time() - start_time
+        log.info(f"Completed generate_map in {duration:.2f} seconds")
 
 
 @map_mcp.tool(name="获取地点经纬度")
@@ -105,15 +110,19 @@ async def get_coordinates(locations: List[str]) -> List[Dict[str, str]]:
         包含每个地点经纬度信息的字典列表，格式:
         [{"name": "天津市", "lng": "39.1175488", "lat": "117.1913008"}]
     """
+    start_time = time.time()
     try:
+        log.info(f"Starting get_coordinates - locations: {locations}")
         if not locations:
             return []
-        log.info(f"获取地点坐标: {locations}")
         return await geocode_weather(locations)
     except Exception as e:
         trace_info = traceback.format_exc()
         log.error(f"获取地点坐标失败: {str(e)}, trace: {trace_info}")
         return [{"error": "Service unavailable"} for _ in locations]
+    finally:
+        duration = time.time() - start_time
+        log.info(f"Completed get_coordinates in {duration:.2f} seconds")
 
 
 @map_mcp.tool(name="查询多个地点指定日期的天气信息")
@@ -152,10 +161,15 @@ async def query_weather_for_coordinates(coordinates: List[Dict[str, str]]) -> Li
             ...
         ]
     """
+    start_time = time.time()
     try:
+        log.info(f"Starting query_weather_for_coordinates - coordinates: {coordinates}")
         return await get_weather(coordinates)
     except Exception as e:
         trace_info = traceback.format_exc()
         error_msg = f"Location weather query failed: {str(e)}"
         log.error(f"{error_msg}, trace: {trace_info}")
         return []
+    finally:
+        duration = time.time() - start_time
+        log.info(f"Completed query_weather_for_coordinates in {duration:.2f} seconds")

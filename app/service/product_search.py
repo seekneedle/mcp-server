@@ -113,7 +113,7 @@ async def fetch_product_detail(product_num: str) -> Optional[Dict]:
         return None
 
 
-async def get_scenics(content):
+async def get_scenics(content) -> str:
     try:
         # 调用百炼平台API（启用内置JSON模式）
         response = await AioGeneration.call(
@@ -135,7 +135,7 @@ async def get_scenics(content):
             log.info(f"get_scenics 解析结果：{result_str}")
             return result_str
         else:
-            raise ValueError(f"{response.code}: {response.message}")
+            return "景点信息提取失败。"
 
     except Exception as e:
         log.error(f"get_scenics 解析失败: {str(e)}", exc_info=True)

@@ -11,8 +11,15 @@ product_mcp = FastMCP(
     on_duplicate_tools='ignore'
 )
 
+product_mcp_2 = FastMCP(
+    name='product-mcp-server',
+    instructions="""
+        This server provides travel product related information.
+    """,
+    on_duplicate_tools='ignore'
+)
 
-@product_mcp.tool(name="使用目的地查询旅行产品框架")
+@product_mcp_2.tool(name="使用目的地查询旅行产品框架")
 async def search_dest_product_abstract(country: str = "", province: str = "", city: str = "", current_page: int=1) -> str:
     """
     使用目的地查询旅行产品框架，返回信息包不包含景点酒店机票的具体描述
@@ -87,7 +94,7 @@ async def search_dest_product_details(country: str = "", province: str = "", cit
 #         log.info(f"Completed search_pass_product_nums in {duration:.2f} seconds")
 
 
-@product_mcp.tool(name="使用产品编号查询旅行产品详情")
+@product_mcp_2.tool(name="使用产品编号查询旅行产品详情")
 async def search_by_product_num(product_num: str) -> str:
     """
     使用产品编号查询旅行产品的详情，返回信息包含景点酒店机票的具体描述

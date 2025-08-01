@@ -2,7 +2,7 @@ from utils.config import config
 import contextlib
 from starlette.applications import Starlette
 from starlette.routing import Mount
-from server.product_router import product_mcp
+from server.product_router import product_mcp, product_mcp_2
 from server.image_router import image_mcp
 from server.video_router import video_mcp
 from server.map_router import map_mcp
@@ -32,6 +32,11 @@ ALL_MCPS = [
         'path': '/v1/product',
         'middlewares': [],
         'app': product_mcp.sse_app()
+    },
+    {
+        'path': '/v2/product',
+        'middlewares': [],
+        'app': product_mcp_2.sse_app()
     },
     {
         'path': '/v1/image',

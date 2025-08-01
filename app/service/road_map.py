@@ -15,7 +15,7 @@ from utils.security import decrypt
 FOREIGN_TEMPLATE = "res/html/amap.html"
 DOMESTIC_TEMPLATE = "res/html/tmap.html"
 OUTPUT_DIR = Path("/usr/share/nginx/html/static")
-BASE_URL = "http://8.152.213.191/static"
+BASE_URL = "https://kb.uuxlink.com/roadmap-static"
 WEATHER_KEY = decrypt(config["weather_key"])
 
 # 确保输出目录存在

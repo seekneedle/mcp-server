@@ -14,7 +14,7 @@ exchange_mcp = FastMCP(
 
 
 @exchange_mcp.tool(name="根据货币代码查询汇率")
-async def exchange_rate(src: str, dest: str, money: str) -> str:
+async def exchange_rate(src: str="CNY", dest: str="USD", money: str="1") -> str:
     """
     汇率查询，根据货币代码，查询换算金额
 

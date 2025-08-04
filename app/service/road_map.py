@@ -232,6 +232,20 @@ async def geocode_weather(locations: List[str]) -> List[Dict[str, str]]:
     results = []
     async with httpx.AsyncClient(timeout=config['timeout']) as client:
         for location in locations:
+            if "Aichi" in location and "JP" in location:
+                results.append({
+                    "name": "爱知县",
+                    "lng": "137.2076048",
+                    "lat": "34.9405211"
+                })
+                continue
+            if "Enoshima" in location and "JP" in location:
+                results.append({
+                    "name": "江之岛",
+                    "lng": "139.5331663",
+                    "lat": "35.3066117"
+                })
+                continue
             try:
                 url = f"http://api.openweathermap.org/geo/1.0/direct?q={location}&limit=1&appid={WEATHER_KEY}"
                 response = await client.get(url)

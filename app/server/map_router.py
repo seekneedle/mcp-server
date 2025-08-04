@@ -104,7 +104,7 @@ async def get_coordinates(locations: List[str]) -> List[Dict[str, str]]:
     获取地点的经纬度信息
 
     参数:
-        locations: 地点名称列表，要求采用城市名(有限使用英文，没有找到英文经纬度再尝试其他语言城市名)和国家名(ISO 3166-1)，中间用逗号分隔，例如: ["Tianjin,CN", "London,GB"]
+        locations: 地点名称列表，要求采用城市名(优先使用英文，没有找到英文经纬度再尝试其他语言城市名)和国家名(ISO 3166-1)，中间用逗号分隔，例如: ["Tianjin,CN", "London,GB"]
 
     返回:
         包含每个地点经纬度信息的字典列表，格式:

@@ -218,6 +218,10 @@ async def get_product_features(product_num: str) -> str:
             product_features.append(f"产品编号：{product_num}")
             # 往返航班信息（严格保持原有获取方式）
             product_features.append("=== 往返航班信息 ===")
+            if line['calList']:
+                cal = line['calList'][0]
+                product_features.append(f"成年人售价：{cal['adultSalePrice']}")
+                product_features.append(f"儿童售价：{cal['childSalePrice']}")
             product_features.append(get_feature_desc(line, "去程交通", 'goTransportName'))
             product_features.append(get_feature_desc(line,
                                                      "去程航班（航空公司、航班号、出发机场、到达机场、出发时间、到达时间）",

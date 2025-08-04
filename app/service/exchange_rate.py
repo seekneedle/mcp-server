@@ -4,7 +4,7 @@ from utils.log import log
 import traceback
 
 
-async def exchange(src: str, dest: str, money: str) -> str:
+async def exchange(src: str="CNY", dest: str="USD", money: str="1") -> str:
     """
     汇率查询，根据货币代码，查询换算金额
 

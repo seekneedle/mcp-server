@@ -9,7 +9,7 @@ data_dir: "data"
 api_key: e3e11aa6905290816f4a3a7a942ecfe94fbe26e353311bd83b3495d4bf3bbbf43f05bcf92a41bb4c08829d0ee70ea272169391137d4a355a7e3c0317b4c9abe5
 
 uux_base_url: "https://mapi.uuxlink.com/mcsp/productAi"
-needle_base_url: "http://8.152.213.191:8471"
+needle_base_url: "http://172.16.0.181:8471"
 needle_id: "icmp3tfyk6"
 image_id: "8au4m6e2d4"
 video_id: "xbmzbolwym"
